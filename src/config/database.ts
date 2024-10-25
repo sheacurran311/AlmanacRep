@@ -1,4 +1,4 @@
-import { Pool, PoolConfig } from 'pg';
+import { Pool, PoolConfig, PoolClient } from 'pg';
 import { getTenantSchema } from './supabase';
 
 const poolConfig: PoolConfig = {
@@ -15,28 +15,45 @@ const poolConfig: PoolConfig = {
 
 const pool = new Pool(poolConfig);
 
-export const query = async (text: string, params?: any[], tenantId?: string) => {
-  const client = await pool.connect();
-  try {
-    if (tenantId) {
-      // Set the search path to the tenant's schema
-      await client.query(`SET search_path TO ${getTenantSchema(tenantId)}, public`);
+export class DatabaseManager {
+  private static async withTransaction<T>(
+    callback: (client: PoolClient) => Promise<T>
+  ): Promise<T> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    const result = await client.query(text, params);
-    return result;
-  } finally {
-    if (tenantId) {
-      // Reset search path
-      await client.query('SET search_path TO public');
-    }
-    client.release();
   }
-};
 
-export const getTenantDB = async (tenantId: string) => {
-  return {
-    query: (text: string, params?: any[]) => query(text, params, tenantId)
-  };
-};
+  static async query(text: string, params?: any[], tenantId?: string) {
+    return this.withTransaction(async (client) => {
+      if (tenantId) {
+        await client.query(`SET search_path TO ${getTenantSchema(tenantId)}, public`);
+      }
+      return client.query(text, params);
+    });
+  }
 
+  static async getTenantDB(tenantId: string) {
+    return {
+      query: (text: string, params?: any[]) => this.query(text, params, tenantId),
+      withTransaction: <T>(callback: (client: PoolClient) => Promise<T>) =>
+        this.withTransaction(async (client) => {
+          await client.query(`SET search_path TO ${getTenantSchema(tenantId)}, public`);
+          return callback(client);
+        })
+    };
+  }
+}
+
+export const query = DatabaseManager.query.bind(DatabaseManager);
+export const getTenantDB = DatabaseManager.getTenantDB.bind(DatabaseManager);
 export default pool;
