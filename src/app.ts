@@ -3,6 +3,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth';
 import loyaltyRoutes from './routes/loyalty';
 import nftRoutes from './routes/nft';
+import arRoutes from './routes/ar';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/nft', nftRoutes);
+app.use('/api/ar', arRoutes);
 
 // Serve static files only for non-API routes
 app.use((req, res, next) => {
