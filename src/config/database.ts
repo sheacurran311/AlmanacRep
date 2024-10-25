@@ -1,6 +1,7 @@
-import { Pool } from 'pg';
+import { Pool, PoolConfig } from 'pg';
+import { getTenantSchema } from './supabase';
 
-const pool = new Pool({
+const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
   port: parseInt(process.env.PGPORT || '5432'),
   database: process.env.PGDATABASE,
@@ -10,21 +11,32 @@ const pool = new Pool({
     rejectUnauthorized: false,
     require: true
   }
-});
+};
 
-export const query = async (text: string, params?: any[]) => {
+const pool = new Pool(poolConfig);
+
+export const query = async (text: string, params?: any[], tenantId?: string) => {
   const client = await pool.connect();
   try {
+    if (tenantId) {
+      // Set the search path to the tenant's schema
+      await client.query(`SET search_path TO ${getTenantSchema(tenantId)}, public`);
+    }
     const result = await client.query(text, params);
     return result;
   } finally {
+    if (tenantId) {
+      // Reset search path
+      await client.query('SET search_path TO public');
+    }
     client.release();
   }
 };
 
 export const getTenantDB = async (tenantId: string) => {
-  // Get tenant-specific connection based on tenantId
-  return pool;
+  return {
+    query: (text: string, params?: any[]) => query(text, params, tenantId)
+  };
 };
 
 export default pool;

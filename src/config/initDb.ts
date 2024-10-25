@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { query } from './database';
+import { supabase, createTenantSchema } from './supabase';
 
 export const initializeDatabase = async () => {
   try {
@@ -31,11 +32,17 @@ export const initializeDatabase = async () => {
     );
     
     if (tenantResult.rows.length > 0) {
-      console.log('Default tenant created, creating admin user...');
+      const tenantId = tenantResult.rows[0].id;
+      console.log('Default tenant created, initializing tenant schema...');
+      
+      // Create tenant schema
+      await createTenantSchema(tenantId.toString());
+      
+      console.log('Creating admin user...');
       // Create a default admin user for testing
       await query(
         "INSERT INTO users (tenant_id, email, password_hash, role) VALUES ($1, 'admin@example.com', 'default-hash', 'admin') ON CONFLICT (email, tenant_id) DO NOTHING",
-        [tenantResult.rows[0].id]
+        [tenantId]
       );
       console.log('Admin user created successfully');
     } else {
