@@ -4,6 +4,7 @@ import AdminLayout from '../components/admin/AdminLayout';
 import Dashboard from '../components/admin/Dashboard';
 import Users from '../components/admin/Users';
 import RewardsManager from '../components/admin/RewardsManager';
+import Analytics from '../components/admin/Analytics';
 import { useAuth } from '../hooks/useAuth';
 
 const AdminRoutes: React.FC = () => {
@@ -23,6 +24,7 @@ const AdminRoutes: React.FC = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/users" element={<Users />} />
         <Route path="/rewards" element={<RewardsManager />} />
+        <Route path="/analytics" element={<Analytics />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </AdminLayout>
