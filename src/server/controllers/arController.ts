@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ARService } from '../services/arService';
+import { ARService } from '../../services/arService.js';
 
 export const getARExperience = async (req: Request, res: Response) => {
   try {

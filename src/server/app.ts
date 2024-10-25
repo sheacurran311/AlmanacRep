@@ -1,15 +1,20 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import authRoutes from '@routes/auth';
-import loyaltyRoutes from '@routes/loyalty';
-import nftRoutes from '@routes/nft';
-import arRoutes from '@routes/ar';
-import analyticsRoutes from '@routes/analytics';
-import { errorHandler } from '@middleware/errorHandler';
+import { fileURLToPath } from 'url';
+import authRoutes from './routes/auth.js';
+import loyaltyRoutes from './routes/loyalty.js';
+import nftRoutes from './routes/nft.js';
+import arRoutes from './routes/ar.js';
+import analyticsRoutes from './routes/analytics.js';
+import { errorHandler } from './middleware/errorHandler.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Enable CORS and JSON parsing
 app.use(cors());
 app.use(express.json());
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { constants } from '@config/constants';
+import { constants } from '../../config/constants.js';
 
 // Extend Express Request type to include user property
 declare global {

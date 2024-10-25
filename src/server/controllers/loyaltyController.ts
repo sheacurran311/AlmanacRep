@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { DatabaseManager } from '../config/database';
-import { getTenantSchema } from '../config/supabase';
+import { DatabaseManager } from '../../config/database.js';
+import { getTenantSchema } from '../../config/supabase.js';
 
 export const createReward = async (req: Request, res: Response) => {
   try {

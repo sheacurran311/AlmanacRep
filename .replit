@@ -19,6 +19,10 @@ args = "Server"
 task = "workflow.run"
 args = "Frontend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build"
+
 [[workflows.workflow]]
 name = "Server"
 author = "agent"
@@ -27,7 +31,9 @@ author = "agent"
 agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
-task = "packager.installForAll"
+task = "shell.exec"
+args = "npm run dev:server"
+waitForPort = 5000
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -43,7 +49,7 @@ agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx vite --config vite.config.ts"
+args = "npm run build:client && npm run dev"
 waitForPort = 3000
 
 [[workflows.workflow.tasks]]
@@ -51,12 +57,27 @@ task = "shell.exec"
 args = "npm run dev:client"
 waitForPort = 3000
 
+[[workflows.workflow]]
+name = "Build"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build"
+
 [deployment]
 run = ["sh", "-c", "npm run dev:server"]
 
 [[ports]]
 localPort = 3000
 externalPort = 3000
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
 
 [[ports]]
 localPort = 8000

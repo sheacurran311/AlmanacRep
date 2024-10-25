@@ -20,11 +20,11 @@
       "@/*": ["src/*"],
       "@components/*": ["src/client/components/*"],
       "@hooks/*": ["src/client/hooks/*"],
-      "@theme/*": ["src/client/theme/*"],
-      "@styles/*": ["src/client/styles/*"],
-      "@routes/*": ["src/client/routes/*"],
-      "@services/*": ["src/client/services/*"],
-      "@utils/*": ["src/client/utils/*"]
+      "@services/*": ["src/server/services/*"],
+      "@config/*": ["src/server/config/*"],
+      "@middleware/*": ["src/server/middleware/*"],
+      "@controllers/*": ["src/server/controllers/*"],
+      "@models/*": ["src/server/models/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

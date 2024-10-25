@@ -1,12 +1,14 @@
-import { query } from '../config/database';
+import { DatabaseManager } from '../config/database';
 import { createTenantSchema, getTenantSchema } from '../config/supabase';
 
 export class TenantManager {
   static async createTenant(name: string, apiKey: string) {
-    const client = await query('BEGIN');
     try {
+      // Start transaction
+      await DatabaseManager.query('BEGIN');
+      
       // Create tenant record
-      const result = await query(
+      const result = await DatabaseManager.query(
         'INSERT INTO tenants (name, api_key) VALUES ($1, $2) RETURNING id',
         [name, apiKey]
       );
@@ -18,7 +20,7 @@ export class TenantManager {
       
       // Initialize tenant-specific tables in their schema
       const schemaName = getTenantSchema(tenantId.toString());
-      await query(`
+      await DatabaseManager.query(`
         SET search_path TO ${schemaName};
         
         CREATE TABLE IF NOT EXISTS tenant_settings (
@@ -39,34 +41,35 @@ export class TenantManager {
         );
       `);
       
-      await query('COMMIT');
+      await DatabaseManager.query('COMMIT');
       return tenantId;
     } catch (error) {
-      await query('ROLLBACK');
+      await DatabaseManager.query('ROLLBACK');
       throw error;
     }
   }
 
   static async deleteTenant(tenantId: string) {
-    const client = await query('BEGIN');
     try {
+      await DatabaseManager.query('BEGIN');
+      
       const schemaName = getTenantSchema(tenantId);
       
       // Drop tenant schema
-      await query(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE`);
+      await DatabaseManager.query(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE`);
       
       // Delete tenant record
-      await query('DELETE FROM tenants WHERE id = $1', [tenantId]);
+      await DatabaseManager.query('DELETE FROM tenants WHERE id = $1', [tenantId]);
       
-      await query('COMMIT');
+      await DatabaseManager.query('COMMIT');
     } catch (error) {
-      await query('ROLLBACK');
+      await DatabaseManager.query('ROLLBACK');
       throw error;
     }
   }
 
-  static async validateTenantAccess(apiKey: string, resource: string) {
-    const result = await query(
+  static async validateTenantAccess(apiKey: string): Promise<{ id: string; name: string }> {
+    const result = await DatabaseManager.query(
       'SELECT id, name FROM tenants WHERE api_key = $1',
       [apiKey]
     );

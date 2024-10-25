@@ -1,15 +1,9 @@
--- Enable Row Level Security
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE rewards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE loyalty_points ENABLE ROW LEVEL SECURITY;
-ALTER TABLE points_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE merkle_trees ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
-
--- Create role types enum
-CREATE TYPE user_role AS ENUM ('super_admin', 'tenant_admin', 'manager', 'user');
+-- Create role types enum if not exists
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('super_admin', 'tenant_admin', 'manager', 'user');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Enhanced tenants table with more configuration options
 CREATE TABLE IF NOT EXISTS tenants (
@@ -31,40 +25,27 @@ CREATE TABLE IF NOT EXISTS users (
     tenant_id INTEGER REFERENCES tenants(id),
     email VARCHAR(255),
     password_hash VARCHAR(255),
-    wallet_address VARCHAR(255),
     role user_role NOT NULL DEFAULT 'user',
     permissions JSONB DEFAULT '{}',
     last_login TIMESTAMP,
-    web3_metadata JSONB DEFAULT '{}',
-    status VARCHAR(50) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(email, tenant_id),
+    UNIQUE(email, tenant_id)
+);
+
+-- Create web3_wallets table
+CREATE TABLE IF NOT EXISTS web3_wallets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    tenant_id INTEGER REFERENCES tenants(id),
+    wallet_address VARCHAR(255) NOT NULL,
+    web3_metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(wallet_address, tenant_id)
 );
 
--- Create RBAC tables
-CREATE TABLE IF NOT EXISTS roles (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
-    name VARCHAR(50) NOT NULL,
-    description TEXT,
-    permissions JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, name)
-);
-
-CREATE TABLE IF NOT EXISTS role_assignments (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
-    user_id INTEGER REFERENCES users(id),
-    role_id INTEGER REFERENCES roles(id),
-    assigned_by INTEGER REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, user_id, role_id)
-);
-
--- Enhanced rewards table with categories and targeting
+-- Create rewards table
 CREATE TABLE IF NOT EXISTS rewards (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER REFERENCES tenants(id),
@@ -82,7 +63,7 @@ CREATE TABLE IF NOT EXISTS rewards (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Enhanced loyalty_points table with expiry and tiers
+-- Create loyalty points table
 CREATE TABLE IF NOT EXISTS loyalty_points (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
@@ -96,7 +77,7 @@ CREATE TABLE IF NOT EXISTS loyalty_points (
     UNIQUE(user_id, tenant_id)
 );
 
--- Enhanced points_transactions table with more metadata
+-- Create points transactions table
 CREATE TABLE IF NOT EXISTS points_transactions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id),
@@ -112,6 +93,38 @@ CREATE TABLE IF NOT EXISTS points_transactions (
     processed_at TIMESTAMP
 );
 
+-- Create merkle trees table
+CREATE TABLE IF NOT EXISTS merkle_trees (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER REFERENCES tenants(id),
+    max_depth INTEGER NOT NULL,
+    max_buffer_size INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create tenant settings table
+CREATE TABLE IF NOT EXISTS tenant_settings (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER REFERENCES tenants(id),
+    key VARCHAR(255) NOT NULL,
+    value JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, key)
+);
+
+-- Create audit logs table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    tenant_id INTEGER REFERENCES tenants(id),
+    action VARCHAR(255) NOT NULL,
+    entity_type VARCHAR(255) NOT NULL,
+    entity_id VARCHAR(255) NOT NULL,
+    user_id INTEGER REFERENCES users(id),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create tenant namespaces table
 CREATE TABLE IF NOT EXISTS tenant_namespaces (
     id SERIAL PRIMARY KEY,
@@ -120,58 +133,86 @@ CREATE TABLE IF NOT EXISTS tenant_namespaces (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create RLS Policies
-
--- Tenant access policy
-CREATE POLICY tenant_isolation_policy ON tenants
-    USING (id = current_setting('app.current_tenant_id')::INTEGER);
-
--- User access policy
-CREATE POLICY tenant_user_isolation_policy ON users
-    USING (tenant_id = current_setting('app.current_tenant_id')::INTEGER);
-
--- Rewards access policy
-CREATE POLICY tenant_reward_isolation_policy ON rewards
-    USING (tenant_id = current_setting('app.current_tenant_id')::INTEGER);
-
--- Points access policy
-CREATE POLICY tenant_points_isolation_policy ON loyalty_points
-    USING (tenant_id = current_setting('app.current_tenant_id')::INTEGER);
-
--- Transactions access policy
-CREATE POLICY tenant_transaction_isolation_policy ON points_transactions
-    USING (tenant_id = current_setting('app.current_tenant_id')::INTEGER);
-
--- Create functions for tenant isolation
-CREATE OR REPLACE FUNCTION set_current_tenant(tenant_id INTEGER)
-RETURNS VOID AS $$
+-- Enable Row Level Security
+DO $$ 
 BEGIN
-    PERFORM set_config('app.current_tenant_id', tenant_id::TEXT, FALSE);
-END;
-$$ LANGUAGE plpgsql;
+    ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE rewards ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE loyalty_points ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE points_transactions ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE merkle_trees ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
 
--- Create function to create tenant schema
-CREATE OR REPLACE FUNCTION create_tenant_schema(tenant_id INTEGER)
-RETURNS VOID AS $$
-DECLARE
-    schema_name TEXT;
+-- Create RLS Policies with proper error handling
+DO $$ 
 BEGIN
-    schema_name := 'tenant_' || tenant_id;
-    EXECUTE 'CREATE SCHEMA IF NOT EXISTS ' || schema_name;
-    INSERT INTO tenant_namespaces (tenant_id, schema_name) 
-    VALUES (tenant_id, schema_name)
-    ON CONFLICT (tenant_id) DO NOTHING;
-END;
-$$ LANGUAGE plpgsql;
+    DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
+    CREATE POLICY tenant_isolation_policy ON tenants
+        USING (id::text = current_setting('app.current_tenant_id', true));
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
 
--- Add indexes for better query performance
-CREATE INDEX IF NOT EXISTS idx_users_wallet ON users(wallet_address) WHERE wallet_address IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-CREATE INDEX IF NOT EXISTS idx_rewards_tenant ON rewards(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_rewards_type ON rewards(reward_type);
-CREATE INDEX IF NOT EXISTS idx_points_tenant ON loyalty_points(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_points_user ON loyalty_points(user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_tenant ON points_transactions(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_user ON points_transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_type ON points_transactions(transaction_type);
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS tenant_user_isolation_policy ON users;
+    CREATE POLICY tenant_user_isolation_policy ON users
+        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
+
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS tenant_reward_isolation_policy ON rewards;
+    CREATE POLICY tenant_reward_isolation_policy ON rewards
+        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
+
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS tenant_points_isolation_policy ON loyalty_points;
+    CREATE POLICY tenant_points_isolation_policy ON loyalty_points
+        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
+
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS tenant_transaction_isolation_policy ON points_transactions;
+    CREATE POLICY tenant_transaction_isolation_policy ON points_transactions
+        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
+
+-- Add indexes with error handling
+DO $$ 
+BEGIN
+    CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    CREATE INDEX IF NOT EXISTS idx_rewards_tenant ON rewards(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_rewards_type ON rewards(reward_type);
+    CREATE INDEX IF NOT EXISTS idx_points_tenant ON loyalty_points(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_points_user ON loyalty_points(user_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_tenant ON points_transactions(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_user ON points_transactions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_transactions_type ON points_transactions(transaction_type);
+EXCEPTION
+    WHEN undefined_table OR undefined_column THEN
+        NULL;
+END $$;

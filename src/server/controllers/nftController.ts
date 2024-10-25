@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { NFTService } from '../services/nftService';
+import { NFTService } from '../../services/nftService.js';
+import { DatabaseManager } from '../../config/database.js';
+import { getTenantSchema } from '../../config/supabase.js';
 
 export const createMerkleTree = async (req: Request, res: Response) => {
   try {

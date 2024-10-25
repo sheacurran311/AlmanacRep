@@ -1,7 +1,7 @@
-import app from './app';
-import { constants } from './config/constants';
-import { initializeDatabase } from './config/initDb';
-import { DatabaseManager } from './config/database';
+import app from './app.js';
+import { constants } from '../config/constants.js';
+import { initializeDatabase } from '../config/initDb.js';
+import { DatabaseManager } from '../config/database.js';
 
 const startServer = async () => {
   try {

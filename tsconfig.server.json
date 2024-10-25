@@ -1,12 +1,15 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "ESNext",
+    "moduleResolution": "node16",
     "outDir": "./dist/server",
-    "target": "es2020",
+    "target": "ESNext",
     "isolatedModules": true,
     "noEmit": false,
-    "jsx": "preserve"
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": ["src/server/**/*"],
   "exclude": ["node_modules", "dist", "src/client"]

@@ -1,34 +1,38 @@
 import fs from 'fs';
 import path from 'path';
-import { query } from './database';
-import { supabase, createTenantSchema } from './supabase';
+import { fileURLToPath } from 'url';
+import { DatabaseManager } from './database';
+import { createTenantSchema } from './supabase';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const initializeDatabase = async () => {
+  const client = await DatabaseManager.query('BEGIN');
+  
   try {
     console.log('Starting database initialization...');
     
-    // Test database connection first
-    try {
-      await query('SELECT NOW()');
-      console.log('Database connection successful');
-    } catch (error) {
-      console.error('Database connection failed:', error);
-      throw new Error('Database connection failed');
-    }
+    // Test database connection
+    await DatabaseManager.query('SELECT NOW()');
+    console.log('Database connection successful');
 
-    // Read and execute schema
+    // Read and execute schema in chunks to better handle errors
     console.log('Reading schema file...');
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     
+    // Execute schema within transaction
     console.log('Executing schema...');
-    await query(schema);
-    console.log('Database schema initialized successfully');
+    await DatabaseManager.query(schema);
     
-    // Create a default tenant for testing
+    // Create default tenant if it doesn't exist
     console.log('Creating default tenant...');
-    const tenantResult = await query(
-      "INSERT INTO tenants (name, api_key) VALUES ('Default Tenant', 'default-api-key') ON CONFLICT (api_key) DO NOTHING RETURNING id"
+    const tenantResult = await DatabaseManager.query(
+      `INSERT INTO tenants (name, api_key) 
+       VALUES ('Default Tenant', 'default-api-key') 
+       ON CONFLICT (api_key) DO NOTHING 
+       RETURNING id`
     );
     
     if (tenantResult.rows.length > 0) {
@@ -38,20 +42,27 @@ export const initializeDatabase = async () => {
       // Create tenant schema
       await createTenantSchema(tenantId.toString());
       
+      // Create default admin user
       console.log('Creating admin user...');
-      // Create a default admin user for testing
-      await query(
-        "INSERT INTO users (tenant_id, email, password_hash, role) VALUES ($1, 'admin@example.com', 'default-hash', 'admin') ON CONFLICT (email, tenant_id) DO NOTHING",
+      await DatabaseManager.query(
+        `INSERT INTO users (tenant_id, email, password_hash, role) 
+         VALUES ($1, 'admin@example.com', 'default-hash', 'admin') 
+         ON CONFLICT (email, tenant_id) DO NOTHING`,
         [tenantId]
       );
-      console.log('Admin user created successfully');
+      
+      await DatabaseManager.query('COMMIT');
+      console.log('Database initialization completed successfully');
     } else {
       console.log('Default tenant already exists');
+      await DatabaseManager.query('COMMIT');
     }
     
     return true;
-  } catch (error) {
-    console.error('Error in database initialization:', error);
+  } catch (error: any) {
+    await DatabaseManager.query('ROLLBACK');
+    console.error('Error in database initialization:', error.message);
+    if (error.stack) console.error('Stack:', error.stack);
     throw error;
   }
 };

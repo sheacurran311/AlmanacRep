@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { constants } from '../config/constants';
-import { DatabaseManager } from '../config/database';
-import { DynamicAuthService } from '../services/dynamicAuthService';
+import { constants } from '../../config/constants.js';
+import { DatabaseManager } from '../../config/database.js';
+import { DynamicAuthService } from '../../services/dynamicAuthService.js';
 
 export const login = async (req: Request, res: Response) => {
   try {

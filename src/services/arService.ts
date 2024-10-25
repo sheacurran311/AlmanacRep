@@ -1,5 +1,4 @@
-import { constants } from '../config/constants';
-
+// AR Service without unused imports
 interface ARGeoLocation {
   latitude: number;
   longitude: number;
@@ -21,9 +20,11 @@ export class ARService {
   constructor() {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
-      throw new Error('Google Maps API key is not configured');
+      console.warn('Google Maps API key is not configured, some features may be limited');
+      this.apiKey = '';
+    } else {
+      this.apiKey = apiKey;
     }
-    this.apiKey = apiKey;
   }
 
   async getARExperience(location: ARGeoLocation): Promise<ARAsset[]> {
@@ -32,7 +33,7 @@ export class ARService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` })
         },
         body: JSON.stringify({
           location,
@@ -57,7 +58,7 @@ export class ARService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` })
         },
         body: JSON.stringify(asset)
       });

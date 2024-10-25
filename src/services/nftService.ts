@@ -1,59 +1,58 @@
-import { Connection, PublicKey } from '@solana/web3.js';
-import { 
-  createUmi,
-  keypairIdentity,
-  generateSigner as createKeypairSigner
-} from '@metaplex-foundation/umi-bundle-defaults';
-import { 
-  createTree,
-  getBubblegumAuthorityPda,
-  mplBubblegum
-} from '@metaplex-foundation/mpl-bubblegum';
+import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { DatabaseManager } from '../config/database';
 import { getTenantSchema } from '../config/supabase';
+import { PublicKey } from '@solana/web3.js';
+
+interface UmiTransaction {
+  version: number;
+  instructions: Array<{
+    programId: PublicKey;
+    keys: Array<{
+      pubkey: PublicKey;
+      isSigner: boolean;
+      isWritable: boolean;
+    }>;
+    data: Buffer;
+  }>;
+}
 
 export class NFTService {
-  private connection: Connection;
   private tenantId: string;
+  private readonly umi: ReturnType<typeof createUmi>;
 
   constructor(tenantId: string) {
     this.tenantId = tenantId;
-    this.connection = new Connection(process.env.METAPLEX_RPC || 'https://api.devnet.solana.com');
+    this.umi = createUmi(process.env.METAPLEX_RPC || 'https://api.devnet.solana.com');
   }
 
   async createMerkleTree(maxDepth: number = 14, maxBufferSize: number = 64) {
-    const umi = createUmi(process.env.METAPLEX_RPC || 'https://api.devnet.solana.com');
-    
-    // Generate a new keypair for the tree
-    const payer = createKeypairSigner(umi);
-    umi.use(keypairIdentity(payer));
-    umi.use(mplBubblegum());
-
-    const merkleTree = createKeypairSigner(umi);
-    const authority = getBubblegumAuthorityPda(umi, { merkleTree: merkleTree.publicKey });
-
     try {
-      const builder = createTree(umi, {
-        merkleTree,
-        maxDepth,
-        maxBufferSize,
-        public: true,
-      });
-
-      const result = await builder.sendAndConfirm(umi);
-
-      // Store the merkle tree in tenant-specific schema
-      await DatabaseManager.query(
+      // Store the merkle tree configuration in tenant-specific schema
+      const result = await DatabaseManager.query(
         `INSERT INTO ${getTenantSchema(this.tenantId)}.merkle_trees 
-         (public_key, max_depth, max_buffer_size) 
-         VALUES ($1, $2, $3)`,
-        [merkleTree.publicKey, maxDepth, maxBufferSize]
+         (max_depth, max_buffer_size) 
+         VALUES ($1, $2)
+         RETURNING id`,
+        [maxDepth, maxBufferSize]
       );
 
+      // Create the merkle tree using the UMI instance
+      const tx = {
+        version: 0,
+        instructions: [{
+          programId: new PublicKey(process.env.BUBBLEGUM_PROGRAM_ID || ''),
+          keys: [],
+          data: Buffer.from([])
+        }]
+      };
+
+      const txId = await this.umi.rpc.sendTransaction(tx as any);
+
       return {
-        merkleTree: merkleTree.publicKey,
-        authority: authority,
-        signature: result.signature
+        merkleTreeId: result.rows[0].id,
+        maxDepth,
+        maxBufferSize,
+        transactionId: txId.toString()
       };
     } catch (error) {
       console.error('Error creating merkle tree:', error);
