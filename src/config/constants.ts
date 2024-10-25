@@ -1,5 +1,5 @@
 export const constants = {
-  PORT: process.env.PORT ? parseInt(process.env.PORT) : 3000,
+  PORT: process.env.PORT ? parseInt(process.env.PORT) : 5000,
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   STRIPE_KEY: process.env.STRIPE_KEY,
   METAPLEX_RPC: process.env.METAPLEX_RPC || 'https://api.devnet.solana.com',

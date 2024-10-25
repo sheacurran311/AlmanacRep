@@ -1,16 +1,19 @@
-
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import AdminRoutes from './routes/adminRoutes';
-import Login from './components/auth/Login';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { StyledEngineProvider } from '@mui/material/styles';
+import AppRoutes from './routes';
+import theme from './theme';
+import './styles/globals.css';
 
 const App: React.FC = () => {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/admin/*" element={<AdminRoutes />} />
-      <Route path="/" element={<Login />} />
-    </Routes>
+    <StyledEngineProvider injectFirst>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AppRoutes />
+      </ThemeProvider>
+    </StyledEngineProvider>
   );
 };
 
