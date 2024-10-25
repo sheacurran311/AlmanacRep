@@ -27,11 +27,11 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development npx ts-node-dev --respawn --transpile-only src/server.ts"
+args = "npm start"
 waitForPort = 5000
 
 [deployment]
-run = ["sh", "-c", "NODE_ENV=development npx ts-node-dev --respawn --transpile-only src/server.ts"]
+run = ["sh", "-c", "npm start"]
 
 [[ports]]
 localPort = 8000
