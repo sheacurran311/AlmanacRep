@@ -1,16 +1,21 @@
-import { constants } from '../config/constants';
-import { DatabaseManager } from '../config/database';
+import { constants } from '../../config/constants.js';
 
-interface DynamicAuthConfig {
+export interface DynamicAuthConfig {
   environmentId: string;
   apiKey: string;
 }
 
-export class DynamicAuthService {
-  private config: DynamicAuthConfig;
-  private tenantId: string;
+export interface DynamicAuthResponse {
+  userId: string;
+  walletAddress: string;
+  chainId: number;
+  verified: boolean;
+}
 
-  constructor(tenantId: string) {
+export class DynamicAuthService {
+  private readonly config: DynamicAuthConfig;
+
+  constructor() {
     if (!constants.DYNAMIC.ENVIRONMENT_ID || !constants.DYNAMIC.API_KEY) {
       throw new Error('Dynamic.xyz configuration is missing');
     }
@@ -19,10 +24,9 @@ export class DynamicAuthService {
       environmentId: constants.DYNAMIC.ENVIRONMENT_ID,
       apiKey: constants.DYNAMIC.API_KEY
     };
-    this.tenantId = tenantId;
   }
 
-  async verifyAuthToken(token: string): Promise<any> {
+  async verifyAuthToken(token: string): Promise<DynamicAuthResponse> {
     try {
       const response = await fetch('https://api.dynamic.xyz/v1/auth/verify', {
         method: 'POST',

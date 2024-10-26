@@ -1,19 +1,21 @@
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
-import { DatabaseManager } from '../config/database';
-import { getTenantSchema } from '../config/supabase';
-import { PublicKey } from '@solana/web3.js';
+import {
+  Transaction,
+  TransactionMessage,
+} from '@metaplex-foundation/umi';
+import { DatabaseManager } from '../config/database.js';
+import { getTenantSchema } from '../config/supabase.js';
 
-interface UmiTransaction {
-  version: number;
-  instructions: Array<{
-    programId: PublicKey;
-    keys: Array<{
-      pubkey: PublicKey;
-      isSigner: boolean;
-      isWritable: boolean;
-    }>;
-    data: Buffer;
-  }>;
+interface CreateMerkleTreeParams {
+  maxDepth: number;
+  maxBufferSize: number;
+}
+
+interface CreateMerkleTreeResult {
+  merkleTreeId: string;
+  maxDepth: number;
+  maxBufferSize: number;
+  transactionId: string;
 }
 
 export class NFTService {
@@ -25,9 +27,9 @@ export class NFTService {
     this.umi = createUmi(process.env.METAPLEX_RPC || 'https://api.devnet.solana.com');
   }
 
-  async createMerkleTree(maxDepth: number = 14, maxBufferSize: number = 64) {
+  async createMerkleTree(params: CreateMerkleTreeParams): Promise<CreateMerkleTreeResult> {
     try {
-      // Store the merkle tree configuration in tenant-specific schema
+      const { maxDepth = 14, maxBufferSize = 64 } = params;
       const result = await DatabaseManager.query(
         `INSERT INTO ${getTenantSchema(this.tenantId)}.merkle_trees 
          (max_depth, max_buffer_size) 
@@ -36,23 +38,38 @@ export class NFTService {
         [maxDepth, maxBufferSize]
       );
 
-      // Create the merkle tree using the UMI instance
-      const tx = {
-        version: 0,
-        instructions: [{
-          programId: new PublicKey(process.env.BUBBLEGUM_PROGRAM_ID || ''),
-          keys: [],
-          data: Buffer.from([])
-        }]
+      // Get latest blockhash
+      const latestBlockhash = await this.umi.rpc.getLatestBlockhash();
+
+      // Create transaction message with proper typing
+      const message: TransactionMessage = {
+        version: 'legacy',
+        instructions: [],
+        header: {
+          numRequiredSignatures: 1,
+          numReadonlySignedAccounts: 0,
+          numReadonlyUnsignedAccounts: 0
+        },
+        accounts: [],
+        blockhash: latestBlockhash.blockhash,
+        addressLookupTables: []
       };
 
-      const txId = await this.umi.rpc.sendTransaction(tx as any);
+      // Create transaction with proper interface
+      const transaction: Transaction = {
+        message,
+        serializedMessage: this.umi.transactions.serializeMessage(message),
+        signatures: []
+      };
+
+      const tx = await this.umi.rpc.sendTransaction(transaction);
+      const signature = tx instanceof Uint8Array ? tx.toString() : tx;
 
       return {
         merkleTreeId: result.rows[0].id,
         maxDepth,
         maxBufferSize,
-        transactionId: txId.toString()
+        transactionId: signature
       };
     } catch (error) {
       console.error('Error creating merkle tree:', error);
@@ -60,7 +77,7 @@ export class NFTService {
     }
   }
 
-  async logNFTOperation(operation: string, metadata: any) {
+  async logNFTOperation(operation: string, metadata: Record<string, unknown>): Promise<void> {
     await DatabaseManager.query(
       `INSERT INTO ${getTenantSchema(this.tenantId)}.audit_logs 
        (action, entity_type, entity_id, metadata) 

@@ -26,18 +26,9 @@ import {
   Add as AddIcon,
   Star as StarIcon
 } from '@mui/icons-material';
+import type { Reward } from '../types';
 
-interface Reward {
-  id: string;
-  name: string;
-  description: string;
-  points: number;
-  category: string;
-  active: boolean;
-  metadata: Record<string, any>;
-}
-
-const RewardsManager: React.FC = () => {
+const RewardsManager: React.FC = (): JSX.Element => {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editReward, setEditReward] = useState<Reward | null>(null);
@@ -50,7 +41,7 @@ const RewardsManager: React.FC = () => {
   const fetchRewards = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/rewards', {
+      const response = await fetch('/api/loyalty/rewards', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -73,7 +64,7 @@ const RewardsManager: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this reward?')) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/admin/rewards/${rewardId}`, {
+        const response = await fetch(`/api/loyalty/rewards/${rewardId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -88,7 +79,7 @@ const RewardsManager: React.FC = () => {
     }
   };
 
-  const handleCategoryChange = (event: SelectChangeEvent) => {
+  const handleCategoryChange = (event: SelectChangeEvent<string>) => {
     setSelectedCategory(event.target.value);
   };
 

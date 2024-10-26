@@ -10,16 +10,14 @@ import {
   Select,
   MenuItem,
   CircularProgress,
+  TextField,
   SelectChangeEvent
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import ReactApexChart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
-import { AnalyticsData } from './types';
+import type { AnalyticsData } from '../types';
 
-const Analytics: React.FC = () => {
+const Analytics: React.FC = (): JSX.Element => {
   const [startDate, setStartDate] = useState<Date>(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
@@ -131,18 +129,24 @@ const Analytics: React.FC = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h4">Analytics Dashboard</Typography>
           <Box display="flex" gap={2}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                label="Start Date"
-                value={startDate}
-                onChange={(newValue) => newValue && setStartDate(newValue)}
-              />
-              <DatePicker
-                label="End Date"
-                value={endDate}
-                onChange={(newValue) => newValue && setEndDate(newValue)}
-              />
-            </LocalizationProvider>
+            <TextField
+              type="date"
+              label="Start Date"
+              value={startDate.toISOString().split('T')[0]}
+              onChange={(e) => setStartDate(new Date(e.target.value))}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <TextField
+              type="date"
+              label="End Date"
+              value={endDate.toISOString().split('T')[0]}
+              onChange={(e) => setEndDate(new Date(e.target.value))}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
             <FormControl variant="outlined" style={{ minWidth: 120 }}>
               <InputLabel>Timeframe</InputLabel>
               <Select

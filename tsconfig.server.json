@@ -2,15 +2,30 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "node16",
+    "moduleResolution": "Node",
     "outDir": "./dist/server",
     "target": "ESNext",
     "isolatedModules": true,
     "noEmit": false,
     "jsx": "preserve",
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@server/*": ["./src/server/*"],
+      "@config/*": ["./src/config/*"],
+      "@services/*": ["./src/services/*"],
+      "@middleware/*": ["./src/middleware/*"],
+      "@utils/*": ["./src/utils/*"]
+    }
   },
-  "include": ["src/server/**/*"],
+  "include": [
+    "src/server/**/*",
+    "src/middleware/**/*",
+    "src/config/**/*",
+    "src/services/**/*",
+    "src/utils/**/*"
+  ],
   "exclude": ["node_modules", "dist", "src/client"]
 }

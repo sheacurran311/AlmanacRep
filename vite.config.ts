@@ -12,15 +12,18 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src'),
+      '@': path.resolve(__dirname, './src'),
+      '@client': path.resolve(__dirname, './src/client'),
+      '@server': path.resolve(__dirname, './src/server'),
       '@components': path.resolve(__dirname, './src/client/components'),
       '@hooks': path.resolve(__dirname, './src/client/hooks'),
       '@theme': path.resolve(__dirname, './src/client/theme'),
       '@styles': path.resolve(__dirname, './src/client/styles'),
-      '@routes': path.resolve(__dirname, './src/client/routes'),
-      '@services': path.resolve(__dirname, './src/client/services'),
-      '@utils': path.resolve(__dirname, './src/client/utils'),
-    },
+      '@services': path.resolve(__dirname, './src/services'),
+      '@config': path.resolve(__dirname, './src/config'),
+      '@middleware': path.resolve(__dirname, './src/middleware'),
+      '@utils': path.resolve(__dirname, './src/utils')
+    }
   },
   server: {
     host: true,
@@ -30,13 +33,10 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
-      },
-    },
-    watch: {
-      usePolling: true,
-    },
+      }
+    }
   },
   optimizeDeps: {
-    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material'],
-  },
+    include: ['@emotion/react', '@emotion/styled', '@mui/material', '@mui/icons-material']
+  }
 });

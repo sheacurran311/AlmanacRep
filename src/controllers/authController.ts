@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
-import { constants } from '@config/constants.js';
-import { DatabaseManager } from '@config/database.js';
-import { AuthError } from '@middleware/auth.js';
+import { constants } from '../config/constants.js';
+import { DatabaseManager } from '../config/database.js';
+import { AuthError } from '../middleware/auth.js';
 
 export interface LoginRequest {
   email: string;

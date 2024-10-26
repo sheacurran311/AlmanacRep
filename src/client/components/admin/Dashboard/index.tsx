@@ -8,13 +8,12 @@ import {
 } from '@mui/material';
 import { ApexOptions } from 'apexcharts';
 import ReactApexChart from 'react-apexcharts';
-import DashboardCard from './DashboardCard';
-import { useAuth } from '../../hooks/useAuth';
+import DashboardCard from '../DashboardCard';
+import { useAuth } from '@/hooks/useAuth';
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC = (): JSX.Element => {
   const { user } = useAuth();
 
-  // Sample chart options
   const chartOptions: ApexOptions = {
     chart: {
       type: 'area',
@@ -47,7 +46,6 @@ const Dashboard: React.FC = () => {
         </Typography>
 
         <Grid container spacing={3}>
-          {/* Summary Cards */}
           <Grid item xs={12} sm={6} md={3}>
             <DashboardCard
               title="Total Users"
@@ -81,7 +79,6 @@ const Dashboard: React.FC = () => {
             />
           </Grid>
 
-          {/* Charts */}
           <Grid item xs={12} md={8}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
@@ -96,13 +93,11 @@ const Dashboard: React.FC = () => {
             </Paper>
           </Grid>
 
-          {/* Recent Activity */}
           <Grid item xs={12} md={4}>
             <Paper sx={{ p: 2, height: '100%' }}>
               <Typography variant="h6" gutterBottom>
                 Recent Activity
               </Typography>
-              {/* Add activity feed component here */}
             </Paper>
           </Grid>
         </Grid>

@@ -1,19 +1,23 @@
 import React, { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../hooks/useAuth';
 import { CircularProgress, Box } from '@mui/material';
 
 // Lazy load components for better initial load performance
 const Login = React.lazy(() => import('../components/auth/Login'));
 const AdminRoutes = React.lazy(() => import('./adminRoutes'));
 
-const LoadingFallback = () => (
+const LoadingFallback: React.FC = () => (
   <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
     <CircularProgress />
   </Box>
 );
 
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+interface PrivateRouteProps {
+  children: React.ReactNode;
+}
+
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -36,7 +40,6 @@ const AppRoutes: React.FC = () => {
             </PrivateRoute>
           }
         />
-        {/* Add a catch-all route for 404 pages */}
         <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>

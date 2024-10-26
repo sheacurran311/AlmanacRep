@@ -13,7 +13,7 @@ export const createMerkleTree = async (req: Request, res: Response) => {
     }
 
     const nftService = new NFTService(tenantId);
-    const result = await nftService.createMerkleTree(maxDepth, maxBufferSize);
+    const result = await nftService.createMerkleTree({ maxDepth, maxBufferSize });
 
     res.status(201).json(result);
   } catch (error) {

@@ -15,7 +15,7 @@ router.post('/merkle-tree', authenticate, createMerkleTree);
 router.get('/merkle-trees', authenticate, getMerkleTrees);
 
 // Basic status endpoint
-router.get('/status', authenticate, (req: Request, res: Response) => {
+router.get('/status', authenticate, (_req: Request, res: Response) => {
   res.json({ status: 'NFT service is running' });
 });
 

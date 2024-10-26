@@ -1,15 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { DatabaseManager } from './database';
-import { createTenantSchema } from './supabase';
+import { DatabaseManager } from '@/config/database';
+import { createTenantSchema } from '@/config/supabase';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const initializeDatabase = async () => {
-  const client = await DatabaseManager.query('BEGIN');
-  
+export const initializeDatabase = async (): Promise<boolean> => {
   try {
     console.log('Starting database initialization...');
     
@@ -24,6 +22,7 @@ export const initializeDatabase = async () => {
     
     // Execute schema within transaction
     console.log('Executing schema...');
+    await DatabaseManager.query('BEGIN');
     await DatabaseManager.query(schema);
     
     // Create default tenant if it doesn't exist

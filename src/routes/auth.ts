@@ -1,10 +1,10 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { login, LoginRequest } from '../controllers/authController.js';
-import { validateLoginInput } from '@middleware/validation.js';
-import { Request, Response } from 'express';
+import { validateLoginInput } from '../middleware/validation.js';
 
 const router = Router();
 
+// Type-safe route handler
 router.post('/login', validateLoginInput, async (req: Request<{}, {}, LoginRequest>, res: Response) => {
   try {
     await login(req, res);

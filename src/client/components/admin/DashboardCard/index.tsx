@@ -13,7 +13,7 @@ import {
   ShowChart as ChartIcon,
   Token as TokenIcon
 } from '@mui/icons-material';
-import { DashboardCardProps } from './types';
+import type { DashboardCardProps } from '../types';
 
 const DashboardCard: React.FC<DashboardCardProps> = ({
   title,

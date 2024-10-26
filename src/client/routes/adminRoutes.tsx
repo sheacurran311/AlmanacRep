@@ -1,10 +1,12 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import AdminLayout from '../components/admin/AdminLayout';
-import Dashboard from '../components/admin/Dashboard';
-import Users from '../components/admin/Users';
-import RewardsManager from '../components/admin/RewardsManager';
-import Analytics from '../components/admin/Analytics';
+import {
+  AdminLayout,
+  Dashboard,
+  Users,
+  RewardsManager,
+  Analytics
+} from '../components/admin';
 
 const AdminRoutes: React.FC = () => {
   return (
