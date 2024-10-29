@@ -1,6 +1,6 @@
-import pg from 'pg';
-import { PoolConfig, QueryResult, QueryResultRow, PoolClient } from 'pg';
-const { Pool } = pg;
+import pkg from 'pg';
+const { Pool } = pkg;
+import type { PoolConfig, QueryResult, QueryResultRow, PoolClient } from 'pg';
 
 interface DatabaseError extends Error {
   code?: string;
@@ -18,9 +18,9 @@ const poolConfig: PoolConfig = {
   database: process.env.PGDATABASE,
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
-  ssl: process.env.NODE_ENV === 'production' 
-    ? { rejectUnauthorized: false }
-    : undefined
+  ssl: {
+    rejectUnauthorized: false
+  }
 };
 
 const pool = new Pool(poolConfig);

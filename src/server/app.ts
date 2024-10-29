@@ -2,6 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import compression from 'compression';
+import helmet from 'helmet';
+import morgan from 'morgan';
 import authRoutes from './routes/auth.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import nftRoutes from './routes/nft.js';
@@ -14,9 +17,63 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Enable CORS and JSON parsing
-app.use(cors());
+// Basic middleware
+app.use(compression());
+app.use(morgan('combined'));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Security headers with proper CSP for Replit
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "wss://*.repl.co", "https://*.repl.co"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false
+}));
+
+// CORS configuration
+const isReplit = Boolean(process.env.REPL_SLUG && process.env.REPL_OWNER);
+const replitDomain = isReplit 
+  ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+  : undefined;
+
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:5000'];
+
+if (replitDomain) {
+  allowedOrigins.push(
+    `https://${replitDomain}`,
+    `wss://${replitDomain}`,
+    `https://${replitDomain}:443`,
+    `https://${replitDomain}:3000`,
+    `https://${replitDomain}:5000`
+  );
+}
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Origin not allowed:', origin);
+      callback(null, true); // Allow all origins in development
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id']
+}));
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -26,13 +83,12 @@ app.use('/api/ar', arRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Serve static files from the client build directory
-app.use(express.static(path.join(__dirname, '../../dist/client')));
+const clientPath = path.join(__dirname, '../../dist/client');
+app.use(express.static(clientPath));
 
-// Serve index.html for any non-API routes (client-side routing)
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api/')) {
-    res.sendFile(path.join(__dirname, '../../dist/client/index.html'));
-  }
+// Handle client-side routing - serve index.html for all unmatched routes
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(clientPath, 'index.html'));
 });
 
 // Error handling

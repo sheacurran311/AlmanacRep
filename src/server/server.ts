@@ -1,5 +1,4 @@
 import app from './app.js';
-import { constants } from '../config/constants.js';
 import { initializeDatabase } from '../config/initDb.js';
 import { DatabaseManager } from '../config/database.js';
 
@@ -7,7 +6,10 @@ const startServer = async () => {
   try {
     console.log('Starting server initialization...');
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`Using port: ${constants.PORT}`);
+    
+    // Get port from environment with fallback
+    const port = parseInt(process.env.PORT || '5000', 10);
+    console.log(`Using port: ${port}`);
     
     // Test database connection first
     try {
@@ -31,23 +33,22 @@ const startServer = async () => {
       process.exit(1);
     }
     
-    // Start the server with explicit error handling
-    const server = app.listen(constants.PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server is running at http://0.0.0.0:${constants.PORT}`);
-      console.log('Available routes:');
-      console.log('- POST /api/auth/login');
-      console.log('- POST /api/loyalty/rewards');
-      console.log('- GET /api/nft/status');
-      console.log('- POST /api/nft/merkle-tree');
+    // Start the server with explicit error handling and proper binding
+    const server = app.listen(port, '0.0.0.0', () => {
+      console.log(`🚀 Server is running at http://0.0.0.0:${port}`);
+      console.log(`Replit environment: ${process.env.REPL_SLUG ? 'Yes' : 'No'}`);
+      if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        console.log(`Replit URL: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+      }
     });
 
     // Enhanced error handling for server startup
     server.on('error', (error: any) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${constants.PORT} is already in use`);
+        console.error(`Port ${port} is already in use`);
         process.exit(1);
       } else if (error.code === 'EACCES') {
-        console.error(`Port ${constants.PORT} requires elevated privileges`);
+        console.error(`Port ${port} requires elevated privileges`);
         process.exit(1);
       } else {
         console.error('Server error:', error.message);

@@ -19,10 +19,6 @@ args = "Server"
 task = "workflow.run"
 args = "Frontend"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Build"
-
 [[workflows.workflow]]
 name = "Server"
 author = "agent"
@@ -32,12 +28,7 @@ agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run dev:server"
-waitForPort = 5000
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev:server"
+args = "NODE_ENV=production npm run dev:server"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -49,27 +40,11 @@ agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run build:client && npm run dev"
+args = "NODE_ENV=production npm run dev"
 waitForPort = 3000
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev:client"
-waitForPort = 3000
-
-[[workflows.workflow]]
-name = "Build"
-author = "agent"
-
-[workflows.workflow.metadata]
-agentRequireRestartOnSave = false
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run build"
 
 [deployment]
-run = ["sh", "-c", "npm run dev:server"]
+run = ["sh", "-c", "NODE_ENV=production npm run dev:server"]
 
 [[ports]]
 localPort = 3000
