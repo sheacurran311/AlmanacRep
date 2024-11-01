@@ -1,4 +1,4 @@
-import app from './app.js';
+import { server } from './app.js';
 import { initializeDatabase } from '../config/initDb.js';
 import { DatabaseManager } from '../config/database.js';
 
@@ -34,7 +34,7 @@ const startServer = async () => {
     }
     
     // Start the server with explicit error handling and proper binding
-    const server = app.listen(port, '0.0.0.0', () => {
+    server.listen(port, '0.0.0.0', () => {
       console.log(`🚀 Server is running at http://0.0.0.0:${port}`);
       console.log(`Replit environment: ${process.env.REPL_SLUG ? 'Yes' : 'No'}`);
       if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
@@ -42,7 +42,7 @@ const startServer = async () => {
       }
     });
 
-    // Enhanced error handling for server startup
+    // Enhanced error handling for server
     server.on('error', (error: any) => {
       if (error.code === 'EADDRINUSE') {
         console.error(`Port ${port} is already in use`);

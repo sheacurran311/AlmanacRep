@@ -21,7 +21,7 @@ import {
   Settings as SettingsIcon,
   ExitToApp as LogoutIcon
 } from '@mui/icons-material';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '@/client/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import type { AdminLayoutProps } from './types';
 

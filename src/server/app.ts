@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { WebSocketServer } from 'ws';
+import http from 'http';
 import authRoutes from './routes/auth.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import nftRoutes from './routes/nft.js';
@@ -16,63 +18,52 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const server = http.createServer(app);
 
 // Basic middleware
 app.use(compression());
-app.use(morgan('combined'));
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Security headers with proper CSP for Replit
+// Security headers with relaxed CSP for development
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", "wss://*.repl.co", "https://*.repl.co"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // CORS configuration
-const isReplit = Boolean(process.env.REPL_SLUG && process.env.REPL_OWNER);
-const replitDomain = isReplit 
-  ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : undefined;
-
-const allowedOrigins = ['http://localhost:3000', 'http://localhost:5000'];
-
-if (replitDomain) {
-  allowedOrigins.push(
-    `https://${replitDomain}`,
-    `wss://${replitDomain}`,
-    `https://${replitDomain}:443`,
-    `https://${replitDomain}:3000`,
-    `https://${replitDomain}:5000`
-  );
-}
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Origin not allowed:', origin);
-      callback(null, true); // Allow all origins in development
-    }
-  },
+const corsOptions = {
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id']
-}));
+};
 
-// Health check endpoint
-app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'healthy' });
+app.use(cors(corsOptions));
+
+// WebSocket server setup
+const wss = new WebSocketServer({ 
+  server,
+  path: '/_hmr'
+});
+
+wss.on('connection', (ws) => {
+  console.log('WebSocket client connected');
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === ws.OPEN) {
+          client.send(JSON.stringify(data));
+        }
+      });
+    } catch (error) {
+      console.error('WS message error:', error);
+    }
+  });
 });
 
 // API Routes
@@ -82,11 +73,11 @@ app.use('/api/nft', nftRoutes);
 app.use('/api/ar', arRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Serve static files from the client build directory
+// Serve static files
 const clientPath = path.join(__dirname, '../../dist/client');
 app.use(express.static(clientPath));
 
-// Handle client-side routing - serve index.html for all unmatched routes
+// Handle client-side routing
 app.get('*', (_req, res) => {
   res.sendFile(path.join(clientPath, 'index.html'));
 });
@@ -94,4 +85,5 @@ app.get('*', (_req, res) => {
 // Error handling
 app.use(errorHandler);
 
+export { app, server };
 export default app;

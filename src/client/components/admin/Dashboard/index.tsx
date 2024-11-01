@@ -9,7 +9,7 @@ import {
 import { ApexOptions } from 'apexcharts';
 import ReactApexChart from 'react-apexcharts';
 import DashboardCard from '../DashboardCard';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@hooks/useAuth';
 
 const Dashboard: React.FC = (): JSX.Element => {
   const { user } = useAuth();

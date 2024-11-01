@@ -25,6 +25,24 @@ const poolConfig: PoolConfig = {
 
 const pool = new Pool(poolConfig);
 
+const supabaseConfig = {
+  db: {
+    schema: 'public',
+  },
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    },
+    reconnectAfterMs: (retryCount: number) => 
+      Math.min(1000 + retryCount * 2000, 10000)
+  }
+};
+
 export class DatabaseManager {
   static async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
     const client = await pool.connect();
@@ -60,4 +78,5 @@ export class DatabaseManager {
 }
 
 export const query = DatabaseManager.query.bind(DatabaseManager);
+export { supabaseConfig };
 export default pool;

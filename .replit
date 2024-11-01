@@ -27,8 +27,11 @@ author = "agent"
 agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=production npm run dev:server"
+args = "NODE_ENV=development npm run dev:server"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -39,21 +42,20 @@ author = "agent"
 agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=production npm run dev"
-waitForPort = 3000
+args = "NODE_ENV=development npm run dev"
+waitForPort = 3001
 
 [deployment]
-run = ["sh", "-c", "NODE_ENV=production npm run dev:server"]
+run = ["sh", "-c", "NODE_ENV=development npm run dev:server"]
 
 [[ports]]
-localPort = 3000
-externalPort = 3000
+localPort = 3001
+externalPort = 80
 
 [[ports]]
 localPort = 5000
-externalPort = 5000
-
-[[ports]]
-localPort = 8000
-externalPort = 80
+externalPort = 3000

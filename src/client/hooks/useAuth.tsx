@@ -18,10 +18,6 @@ export interface AuthContextType {
   error: string | null;
 }
 
-export interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: async () => {},
@@ -30,7 +26,13 @@ const AuthContext = createContext<AuthContextType>({
   error: null
 });
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
+
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
