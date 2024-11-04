@@ -14,50 +14,79 @@ createRoot(root).render(
   </React.StrictMode>
 );
 
-// Enhanced HMR setup
+// Enhanced HMR setup with better error handling
 if (import.meta.hot) {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.hostname;
+  const port = window.location.protocol === 'https:' ? '443' : '3000';
+  const path = '/_hmr';
+
+  let ws: WebSocket | null = null;
+  let reconnectAttempts = 0;
   const maxReconnectAttempts = 10;
-  let reconnectCount = 0;
-  let reconnectTimeout: number | null = null;
+  const reconnectBackoff = 1000;
 
-  const reconnect = () => {
-    if (reconnectCount >= maxReconnectAttempts) {
-      console.error('[HMR] Max reconnection attempts reached');
-      return;
+  const connect = () => {
+    if (ws) {
+      ws.close();
+      ws = null;
     }
 
-    reconnectCount++;
-    console.log(`[HMR] Attempting to reconnect (${reconnectCount}/${maxReconnectAttempts})`);
+    const wsUrl = `${protocol}//${host}:${port}${path}`;
+    console.log('[HMR] Connecting to', wsUrl);
     
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout);
-    }
+    try {
+      ws = new WebSocket(wsUrl);
 
-    reconnectTimeout = window.setTimeout(() => {
-      window.location.reload();
-    }, 1000 * Math.min(reconnectCount, 5));
+      ws.addEventListener('open', () => {
+        console.log('[HMR] Connected');
+        reconnectAttempts = 0;
+      });
+
+      ws.addEventListener('message', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'connected') {
+            console.log('[HMR] Server acknowledged connection');
+          }
+        } catch (error) {
+          console.warn('[HMR] Failed to parse message:', error);
+        }
+      });
+
+      ws.addEventListener('close', () => {
+        console.log('[HMR] Disconnected');
+        ws = null;
+
+        if (reconnectAttempts < maxReconnectAttempts) {
+          const timeout = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+          console.log(`[HMR] Reconnecting in ${timeout}ms...`);
+          setTimeout(() => {
+            reconnectAttempts++;
+            connect();
+          }, timeout);
+        } else {
+          console.error('[HMR] Max reconnection attempts reached');
+        }
+      });
+
+      ws.addEventListener('error', (error) => {
+        console.error('[HMR] WebSocket error:', error);
+      });
+
+    } catch (error) {
+      console.error('[HMR] Failed to create WebSocket:', error);
+    }
   };
 
-  import.meta.hot.on('vite:beforeUpdate', (payload: any) => {
-    console.log('[HMR] Update received:', payload.type);
-  });
+  connect();
 
-  import.meta.hot.on('vite:error', (err: Error) => {
-    console.warn('[HMR] Error occurred:', err);
-    reconnect();
-  });
-
-  import.meta.hot.on('vite:ws:disconnect', () => {
-    console.log('[HMR] WebSocket disconnected');
-    reconnect();
-  });
-
-  import.meta.hot.on('vite:ws:connect', () => {
-    console.log('[HMR] WebSocket connected');
-    reconnectCount = 0;
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout);
-      reconnectTimeout = null;
+  // Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !ws) {
+      console.log('[HMR] Page became visible, attempting to reconnect');
+      reconnectAttempts = 0;
+      connect();
     }
   });
 }

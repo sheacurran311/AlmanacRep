@@ -6,7 +6,7 @@ import {
   Users,
   RewardsManager,
   Analytics
-} from '../components/admin';
+} from '@client/components/admin';
 
 const AdminRoutes: React.FC = () => {
   return (

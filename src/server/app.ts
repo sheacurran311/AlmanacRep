@@ -43,22 +43,37 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// WebSocket server setup
+// WebSocket server setup with enhanced configuration
 const wss = new WebSocketServer({ 
   server,
   path: '/_hmr',
-  perMessageDeflate: false
+  perMessageDeflate: false,
+  clientTracking: true,
+  handleProtocols: (protocols) => {
+    if (protocols.includes('vite-hmr')) return 'vite-hmr';
+    return '';
+  }
 });
 
-// WebSocket connection handling
-wss.on('connection', (ws) => {
-  console.log('WebSocket client connected');
+// Enhanced WebSocket error handling
+wss.on('connection', (ws, req) => {
+  console.log('WebSocket client connected from:', req.socket.remoteAddress);
   
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === ws.OPEN) {
+      ws.ping();
+    }
+  }, 30000);
+
+  ws.on('pong', () => {
+    // Client responded to ping
+    ws.isAlive = true;
+  });
+
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
-      // Echo back any HMR messages
-      ws.send(JSON.stringify({ type: 'pong', data }));
+      ws.send(JSON.stringify({ type: 'connected' }));
     } catch (error) {
       console.error('WebSocket message error:', error);
     }
@@ -69,6 +84,7 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+    clearInterval(pingInterval);
     console.log('WebSocket client disconnected');
   });
 });

@@ -37,11 +37,15 @@ export default defineConfig({
     strictPort: true,
     hmr: {
       protocol: isReplit ? 'wss' : 'ws',
-      host: replitDomain,
+      host: isReplit ? replitDomain : 'localhost',
       clientPort: isReplit ? 443 : 3000,
-      timeout: 120000,
+      path: '/_hmr',
       overlay: true,
-      path: '/_hmr'
+      timeout: 120000
+    },
+    watch: {
+      usePolling: true,
+      interval: 1000
     },
     proxy: {
       '/api': {
