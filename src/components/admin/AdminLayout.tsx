@@ -21,9 +21,9 @@ import {
   Settings as SettingsIcon,
   ExitToApp as LogoutIcon
 } from '@mui/icons-material';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@client/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { AdminLayoutProps } from './types';
+import type { AdminLayoutProps } from './types';
 
 const drawerWidth = 240;
 
@@ -37,11 +37,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
     { text: 'Users', icon: <PeopleIcon />, path: '/admin/users' },
     { text: 'Rewards', icon: <RewardsIcon />, path: '/admin/rewards' },
-    { text: 'NFTs', icon: <NFTIcon />, path: '/admin/nfts' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
+    { text: 'Analytics', icon: <NFTIcon />, path: '/admin/analytics' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' }
   ];
 
   const drawer = (

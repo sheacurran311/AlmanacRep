@@ -33,18 +33,15 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 3001,
+    port: 3000,
+    strictPort: true,
     hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 3001,
-      clientPort: 3001,
-      path: '/_hmr',
-      timeout: 60000
-    },
-    watch: {
-      usePolling: true,
-      interval: 1000
+      protocol: isReplit ? 'wss' : 'ws',
+      host: replitDomain,
+      clientPort: isReplit ? 443 : 3000,
+      timeout: 120000,
+      overlay: true,
+      path: '/_hmr'
     },
     proxy: {
       '/api': {

@@ -5,7 +5,7 @@ import { StyledEngineProvider } from '@mui/material/styles';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './routes';
 import theme from './theme';
-import { AuthProvider } from '@/client/hooks/useAuth';
+import { AuthProvider } from '@client/hooks/useAuth';
 import './styles/globals.css';
 
 const App: React.FC = () => {

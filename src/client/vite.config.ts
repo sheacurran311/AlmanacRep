@@ -34,20 +34,17 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
-    strictPort: true,
     hmr: {
-      protocol: isReplit ? 'wss' : 'ws',
-      host: replitDomain,
+      protocol: 'ws',
+      host: 'localhost',
+      port: 3000,
       clientPort: 3000,
-      path: '/_hmr',
       timeout: 120000,
       overlay: false
     },
     proxy: {
       '/api': {
-        target: isReplit 
-          ? `https://${replitDomain}:5000` 
-          : 'http://localhost:5000',
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
         ws: true

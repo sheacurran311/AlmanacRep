@@ -3,8 +3,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { CircularProgress, Box } from '@mui/material';
 
-// Lazy load components for better initial load performance
+// Lazy load components
 const Login = React.lazy(() => import('../components/auth/Login'));
+const Home = React.lazy(() => import('../components/landing/Home'));
 const AdminRoutes = React.lazy(() => import('./adminRoutes'));
 
 const LoadingFallback: React.FC = () => (
@@ -31,6 +32,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route
           path="/admin/*"
@@ -40,8 +42,6 @@ const AppRoutes: React.FC = () => {
             </PrivateRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/admin" replace />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Suspense>
   );

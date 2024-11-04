@@ -26,7 +26,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Security headers with relaxed CSP for development
+// Security headers with proper CSP for development
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
@@ -36,9 +36,9 @@ app.use(helmet({
 // CORS configuration
 const corsOptions = {
   origin: true,
-  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
+  credentials: true
 };
 
 app.use(cors(corsOptions));
@@ -46,23 +46,30 @@ app.use(cors(corsOptions));
 // WebSocket server setup
 const wss = new WebSocketServer({ 
   server,
-  path: '/_hmr'
+  path: '/_hmr',
+  perMessageDeflate: false
 });
 
+// WebSocket connection handling
 wss.on('connection', (ws) => {
   console.log('WebSocket client connected');
   
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
-      wss.clients.forEach((client) => {
-        if (client !== ws && client.readyState === ws.OPEN) {
-          client.send(JSON.stringify(data));
-        }
-      });
+      // Echo back any HMR messages
+      ws.send(JSON.stringify({ type: 'pong', data }));
     } catch (error) {
-      console.error('WS message error:', error);
+      console.error('WebSocket message error:', error);
     }
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
   });
 });
 

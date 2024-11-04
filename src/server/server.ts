@@ -8,7 +8,7 @@ const startServer = async () => {
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     
     // Get port from environment with fallback
-    const port = parseInt(process.env.PORT || '5000', 10);
+    const port = 5000;
     console.log(`Using port: ${port}`);
     
     // Test database connection first
@@ -34,12 +34,9 @@ const startServer = async () => {
     }
     
     // Start the server with explicit error handling and proper binding
-    server.listen(port, '0.0.0.0', () => {
-      console.log(`🚀 Server is running at http://0.0.0.0:${port}`);
-      console.log(`Replit environment: ${process.env.REPL_SLUG ? 'Yes' : 'No'}`);
-      if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        console.log(`Replit URL: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
-      }
+    const internalPort = 5000;  // Ensure your server is using this port
+    server.listen(internalPort, '0.0.0.0', () => {
+      console.log(`🚀 Server is running on port ${internalPort}`);
     });
 
     // Enhanced error handling for server

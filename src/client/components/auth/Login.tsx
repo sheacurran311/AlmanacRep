@@ -8,7 +8,7 @@ import {
   Paper
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '@/client/hooks/useAuth';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
