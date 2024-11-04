@@ -14,79 +14,48 @@ createRoot(root).render(
   </React.StrictMode>
 );
 
-// Enhanced HMR setup with better error handling
+// Enhanced HMR setup with simplified WebSocket handling
 if (import.meta.hot) {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.hostname;
-  const port = window.location.protocol === 'https:' ? '443' : '3000';
-  const path = '/_hmr';
-
+  const port = '3000';  // Force using port 3000
+  
   let ws: WebSocket | null = null;
   let reconnectAttempts = 0;
-  const maxReconnectAttempts = 10;
-  const reconnectBackoff = 1000;
-
+  const maxReconnectAttempts = 5;
+  
   const connect = () => {
     if (ws) {
       ws.close();
       ws = null;
     }
-
-    const wsUrl = `${protocol}//${host}:${port}${path}`;
+    
+    const wsUrl = `${protocol}//${host}:${port}/_hmr`;
     console.log('[HMR] Connecting to', wsUrl);
     
     try {
       ws = new WebSocket(wsUrl);
-
+      
       ws.addEventListener('open', () => {
         console.log('[HMR] Connected');
         reconnectAttempts = 0;
       });
-
-      ws.addEventListener('message', (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'connected') {
-            console.log('[HMR] Server acknowledged connection');
-          }
-        } catch (error) {
-          console.warn('[HMR] Failed to parse message:', error);
-        }
-      });
-
-      ws.addEventListener('close', () => {
-        console.log('[HMR] Disconnected');
-        ws = null;
-
-        if (reconnectAttempts < maxReconnectAttempts) {
-          const timeout = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
-          console.log(`[HMR] Reconnecting in ${timeout}ms...`);
-          setTimeout(() => {
-            reconnectAttempts++;
-            connect();
-          }, timeout);
-        } else {
-          console.error('[HMR] Max reconnection attempts reached');
-        }
-      });
-
+      
       ws.addEventListener('error', (error) => {
         console.error('[HMR] WebSocket error:', error);
       });
-
+      
+      ws.addEventListener('close', () => {
+        console.log('[HMR] Disconnected');
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          setTimeout(connect, 1000 * Math.min(reconnectAttempts, 3));
+        }
+      });
     } catch (error) {
       console.error('[HMR] Failed to create WebSocket:', error);
     }
   };
-
+  
   connect();
-
-  // Handle page visibility changes
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && !ws) {
-      console.log('[HMR] Page became visible, attempting to reconnect');
-      reconnectAttempts = 0;
-      connect();
-    }
-  });
 }

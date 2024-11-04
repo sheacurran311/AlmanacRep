@@ -38,9 +38,9 @@ export default defineConfig({
     hmr: {
       protocol: isReplit ? 'wss' : 'ws',
       host: isReplit ? replitDomain : 'localhost',
-      clientPort: isReplit ? 443 : 3000,
+      port: 3000,
+      clientPort: 3000,
       path: '/_hmr',
-      overlay: true,
       timeout: 120000
     },
     watch: {
@@ -49,7 +49,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://0.0.0.0:5000',
         changeOrigin: true,
         secure: false,
         ws: true
