@@ -7,6 +7,7 @@ import { CircularProgress, Box } from '@mui/material';
 const Login = React.lazy(() => import('../components/auth/Login'));
 const Register = React.lazy(() => import('../components/auth/Register'));
 const Home = React.lazy(() => import('../components/landing/Home'));
+const About = React.lazy(() => import('../components/landing/About'));
 const AdminRoutes = React.lazy(() => import('./adminRoutes'));
 
 const LoadingFallback: React.FC = () => (
@@ -34,6 +35,7 @@ const AppRoutes: React.FC = () => {
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route

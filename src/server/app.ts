@@ -11,6 +11,8 @@ import loyaltyRoutes from './routes/loyalty.js';
 import nftRoutes from './routes/nft.js';
 import arRoutes from './routes/ar.js';
 import analyticsRoutes from './routes/analytics.js';
+import campaignRoutes from './routes/campaigns.js';
+import customerRoutes from './routes/customers.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,6 +52,8 @@ app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/nft', nftRoutes);
 app.use('/api/ar', arRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/customers', customerRoutes);
 
 // Serve static files
 const clientPath = path.join(__dirname, '../../dist/client');
