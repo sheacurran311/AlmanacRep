@@ -9,12 +9,12 @@ const replitDomain = process.env.REPL_SLUG && process.env.REPL_OWNER
 
 export default defineConfig({
   plugins: [react()],
-  root: "./src/client",
+  root: "src/client",
   base: "/",
   build: {
-    outDir: "../../dist/client",
+    outDir: "dist/client",
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: true
   },
   resolve: {
     alias: {
@@ -28,7 +28,7 @@ export default defineConfig({
       "@services": path.resolve(__dirname, "./src/services"),
       "@config": path.resolve(__dirname, "./src/config"),
       "@middleware": path.resolve(__dirname, "./src/middleware"),
-    },
+    }
   },
   server: {
     host: "0.0.0.0",
@@ -38,6 +38,7 @@ export default defineConfig({
       protocol: replitDomain ? 'wss' : 'ws',
       host: replitDomain || undefined,
       clientPort: replitDomain ? 443 : 3001,
+      path: '/_hmr',
       timeout: 60000,
       overlay: {
         errors: true,
