@@ -12,7 +12,7 @@ export default defineConfig({
   root: "src/client",
   base: "/",
   build: {
-    outDir: "dist/client",
+    outDir: "../../dist/client",
     emptyOutDir: true,
     sourcemap: true
   },
@@ -31,24 +31,27 @@ export default defineConfig({
     }
   },
   server: {
-    host: "0.0.0.0",
-    port: 3001,
+    host: true,
+    port: 5173,
     strictPort: true,
-    hmr: {
-      protocol: replitDomain ? 'wss' : 'ws',
-      host: replitDomain || undefined,
-      clientPort: replitDomain ? 443 : 3001,
-      path: '/_hmr',
-      timeout: 60000,
-      overlay: {
-        errors: true,
-        warnings: true
-      }
-    },
-    watch: {
-      usePolling: true,
-      interval: 1000
-    },
+    hmr: replitDomain 
+      ? {
+          clientPort: 443,
+          protocol: 'wss',
+          host: replitDomain,
+          path: '/_hmr',
+          timeout: 60000,
+          overlay: true,
+          clientMode: 'ws'
+        }
+      : {
+          port: 5173,
+          protocol: 'ws',
+          host: 'localhost',
+          path: '/_hmr',
+          timeout: 60000,
+          overlay: true
+        },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -56,6 +59,11 @@ export default defineConfig({
         secure: false,
         ws: true
       }
+    },
+    cors: true,
+    watch: {
+      usePolling: true,
+      interval: 1000
     }
   }
 });
