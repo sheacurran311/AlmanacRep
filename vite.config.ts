@@ -5,7 +5,7 @@ import path from "path";
 // Get Replit domain information
 const replitDomain = process.env.REPL_SLUG && process.env.REPL_OWNER
   ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : null;
+  : 'localhost';
 
 export default defineConfig({
   plugins: [react()],
@@ -35,17 +35,21 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: {
-      port: 443,
-      protocol: 'wss',
-      host: replitDomain || 'localhost',
-      clientPort: 443,
+      protocol: replitDomain === 'localhost' ? 'ws' : 'wss',
+      host: replitDomain,
+      clientPort: replitDomain === 'localhost' ? 5173 : 443,
       timeout: 120000,
-      overlay: true,
       path: '/_hmr',
+      overlay: false,
+      clientTracking: true,
       webSocketServer: {
-        compress: true,
-        maxPayload: 1024 * 1024,
-        skipUACheck: true
+        options: {
+          path: '/_hmr',
+          maxPayload: 5 * 1024 * 1024,
+          skipUACheck: true,
+          perMessageDeflate: false,
+          heartbeat: 30000,
+        }
       }
     },
     proxy: {
@@ -53,7 +57,16 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        ws: true
+        ws: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy, _options) => {
+          proxy.on('error', (err) => {
+            console.error('Proxy error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req) => {
+            console.log('Proxying:', req.method, req.url);
+          });
+        }
       }
     },
     watch: {

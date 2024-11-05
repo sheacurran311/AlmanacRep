@@ -44,7 +44,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// API Routes
+// API Routes with proper prefixes
 app.use('/api/auth', authRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/nft', nftRoutes);
