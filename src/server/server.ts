@@ -24,20 +24,29 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    const port = process.env.PORT || 3001;
+    const port = 3000;
 
     // Start server
     server.listen(port, '0.0.0.0', () => {
       console.log(`[${new Date().toISOString()}] [SERVER] Server is running at http://0.0.0.0:${port}`);
     });
 
-    server.on('error', (error) => {
+    // Handle server errors
+    server.on('error', (error: any) => {
       if (error.code === 'EADDRINUSE') {
         console.error(`[${new Date().toISOString()}] [SERVER] Port ${port} is already in use`);
+        // Try to close any existing connections
+        server.close(() => {
+          console.log(`[${new Date().toISOString()}] [SERVER] Closed existing connections`);
+          // Retry after a short delay
+          setTimeout(() => {
+            server.listen(port, '0.0.0.0');
+          }, 1000);
+        });
       } else {
         console.error(`[${new Date().toISOString()}] [SERVER] Error:`, error);
+        process.exit(1);
       }
-      process.exit(1);
     });
 
   } catch (error) {

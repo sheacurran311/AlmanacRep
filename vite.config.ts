@@ -31,26 +31,20 @@ export default defineConfig({
     },
   },
   server: {
-    host: "0.0.0.0",
-    port: 3000,
-    strictPort: true,
+    host: '0.0.0.0',
+    port: 3001,
     hmr: {
-      protocol: 'ws',
+      protocol: replitDomain ? 'wss' : 'ws',
       host: replitDomain,
-      clientPort: 443,
-      timeout: 60000,
-      overlay: true,
-    },
-    watch: {
-      usePolling: true,
-      interval: 1000
+      clientPort: replitDomain ? 443 : 3001,
+      path: '/_hmr',
+      timeout: 60000
     },
     proxy: {
-      "/api": {
-        target: "http://0.0.0.0:3001",
+      '/api': {
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false,
-        ws: true
+        secure: false
       }
     }
   }
