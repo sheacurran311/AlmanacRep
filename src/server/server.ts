@@ -4,74 +4,55 @@ import { DatabaseManager } from '../config/database.js';
 
 const startServer = async () => {
   try {
-    console.log('Starting server initialization...');
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    
-    // Get port from environment with fallback
-    const port = 5000;
-    console.log(`Using port: ${port}`);
+    console.log(`[${new Date().toISOString()}] [SERVER] Starting server initialization...`);
     
     // Test database connection first
     try {
-      console.log('Testing database connection...');
       await DatabaseManager.query('SELECT NOW()');
-      console.log('Database connection successful');
-    } catch (dbError: any) {
-      console.error('Database connection failed:', dbError.message);
-      if (dbError.stack) console.error('Stack:', dbError.stack);
+      console.log(`[${new Date().toISOString()}] [DATABASE] Connection successful`);
+    } catch (dbError) {
+      console.error(`[${new Date().toISOString()}] [DATABASE] Connection failed:`, dbError);
       process.exit(1);
     }
-    
-    // Initialize database with better error handling
+
+    // Initialize database
     try {
-      console.log('Initializing database...');
       await initializeDatabase();
-      console.log('Database initialization completed successfully');
-    } catch (dbError: any) {
-      console.error('Database initialization failed:', dbError.message);
-      if (dbError.stack) console.error('Stack:', dbError.stack);
+      console.log(`[${new Date().toISOString()}] [DATABASE] Initialization completed`);
+    } catch (dbError) {
+      console.error(`[${new Date().toISOString()}] [DATABASE] Initialization failed:`, dbError);
       process.exit(1);
     }
-    
-    // Start the server with explicit error handling and proper binding
-    const internalPort = 5000;  // Ensure your server is using this port
-    server.listen(internalPort, '0.0.0.0', () => {
-      console.log(`🚀 Server is running on port ${internalPort}`);
+
+    const port = process.env.PORT || 3001;
+
+    // Start server
+    server.listen(port, '0.0.0.0', () => {
+      console.log(`[${new Date().toISOString()}] [SERVER] Server is running at http://0.0.0.0:${port}`);
     });
 
-    // Enhanced error handling for server
-    server.on('error', (error: any) => {
+    server.on('error', (error) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use`);
-        process.exit(1);
-      } else if (error.code === 'EACCES') {
-        console.error(`Port ${port} requires elevated privileges`);
-        process.exit(1);
+        console.error(`[${new Date().toISOString()}] [SERVER] Port ${port} is already in use`);
       } else {
-        console.error('Server error:', error.message);
-        if (error.stack) console.error('Stack:', error.stack);
-        process.exit(1);
+        console.error(`[${new Date().toISOString()}] [SERVER] Error:`, error);
       }
+      process.exit(1);
     });
 
-  } catch (error: any) {
-    console.error('Failed to start server:', error.message);
-    if (error.stack) console.error('Stack:', error.stack);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] [SERVER] Failed to start server:`, error);
     process.exit(1);
   }
 };
 
-// Enhanced error handling for uncaught exceptions
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error.message);
-  if (error.stack) console.error('Stack:', error.stack);
+  console.error(`[${new Date().toISOString()}] [EXCEPTION] Uncaught Exception:`, error);
   process.exit(1);
 });
 
-// Enhanced error handling for unhandled rejections
-process.on('unhandledRejection', (reason: any) => {
-  console.error('Unhandled Rejection:', reason?.message || reason);
-  if (reason?.stack) console.error('Stack:', reason.stack);
+process.on('unhandledRejection', (reason) => {
+  console.error(`[${new Date().toISOString()}] [REJECTION] Unhandled Rejection:`, reason);
   process.exit(1);
 });
 

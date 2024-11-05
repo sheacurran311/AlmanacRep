@@ -5,7 +5,6 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { WebSocketServer } from 'ws';
 import http from 'http';
 import authRoutes from './routes/auth.js';
 import loyaltyRoutes from './routes/loyalty.js';
@@ -33,61 +32,17 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration
+// CORS configuration with WebSocket support
 const corsOptions = {
   origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
-  credentials: true
+  credentials: true,
+  maxAge: 86400,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
-
-// WebSocket server setup with enhanced configuration
-const wss = new WebSocketServer({ 
-  server,
-  path: '/_hmr',
-  perMessageDeflate: false,
-  clientTracking: true,
-  handleProtocols: (protocols) => {
-    if (protocols.includes('vite-hmr')) return 'vite-hmr';
-    return '';
-  }
-});
-
-// Enhanced WebSocket error handling
-wss.on('connection', (ws, req) => {
-  console.log('WebSocket client connected from:', req.socket.remoteAddress);
-  
-  const pingInterval = setInterval(() => {
-    if (ws.readyState === ws.OPEN) {
-      ws.ping();
-    }
-  }, 30000);
-
-  ws.on('pong', () => {
-    // Client responded to ping
-    ws.isAlive = true;
-  });
-
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      ws.send(JSON.stringify({ type: 'connected' }));
-    } catch (error) {
-      console.error('WebSocket message error:', error);
-    }
-  });
-
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
-  });
-
-  ws.on('close', () => {
-    clearInterval(pingInterval);
-    console.log('WebSocket client disconnected');
-  });
-});
 
 // API Routes
 app.use('/api/auth', authRoutes);
