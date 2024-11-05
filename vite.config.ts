@@ -31,27 +31,23 @@ export default defineConfig({
     }
   },
   server: {
-    host: true,
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    hmr: replitDomain 
-      ? {
-          clientPort: 443,
-          protocol: 'wss',
-          host: replitDomain,
-          path: '/_hmr',
-          timeout: 60000,
-          overlay: true,
-          clientMode: 'ws'
-        }
-      : {
-          port: 5173,
-          protocol: 'ws',
-          host: 'localhost',
-          path: '/_hmr',
-          timeout: 60000,
-          overlay: true
-        },
+    hmr: {
+      port: 443,
+      protocol: 'wss',
+      host: replitDomain || 'localhost',
+      clientPort: 443,
+      timeout: 120000,
+      overlay: true,
+      path: '/_hmr',
+      webSocketServer: {
+        compress: true,
+        maxPayload: 1024 * 1024,
+        skipUACheck: true
+      }
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -60,7 +56,6 @@ export default defineConfig({
         ws: true
       }
     },
-    cors: true,
     watch: {
       usePolling: true,
       interval: 1000
