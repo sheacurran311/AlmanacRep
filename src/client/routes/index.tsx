@@ -5,6 +5,7 @@ import { CircularProgress, Box } from '@mui/material';
 
 // Lazy load components
 const Login = React.lazy(() => import('../components/auth/Login'));
+const Register = React.lazy(() => import('../components/auth/Register'));
 const Home = React.lazy(() => import('../components/landing/Home'));
 const AdminRoutes = React.lazy(() => import('./adminRoutes'));
 
@@ -34,6 +35,7 @@ const AppRoutes: React.FC = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route
           path="/admin/*"
           element={
