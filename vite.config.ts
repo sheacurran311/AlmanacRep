@@ -38,17 +38,21 @@ export default defineConfig({
       protocol: replitDomain === 'localhost' ? 'ws' : 'wss',
       host: replitDomain,
       clientPort: replitDomain === 'localhost' ? 5173 : 443,
-      timeout: 120000,
-      path: '/_hmr',
+      timeout: 60000,
       overlay: false,
+      path: '/_hmr',
       clientTracking: true,
+      reconnect: true,
       webSocketServer: {
         options: {
           path: '/_hmr',
-          maxPayload: 5 * 1024 * 1024,
+          maxPayload: 1024 * 1024, // 1MB
           skipUACheck: true,
           perMessageDeflate: false,
-          heartbeat: 30000,
+          heartbeat: {
+            interval: 15000,
+            timeout: 45000
+          }
         }
       }
     },
@@ -59,19 +63,23 @@ export default defineConfig({
         secure: false,
         ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
-        configure: (proxy, _options) => {
+        configure: (proxy) => {
           proxy.on('error', (err) => {
-            console.error('Proxy error:', err);
+            console.error('[Proxy Error]:', err);
           });
           proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('Proxying:', req.method, req.url);
+            console.log('[Proxy Request]:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (_proxyRes, req) => {
+            console.log('[Proxy Response]:', req.method, req.url);
           });
         }
       }
     },
     watch: {
       usePolling: true,
-      interval: 1000
+      interval: 1000,
+      binaryInterval: 3000
     }
   }
 });

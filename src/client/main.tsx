@@ -9,12 +9,11 @@ if (!root) {
 }
 
 if (import.meta.hot) {
-  const maxRetries = 10;
+  const maxRetries = 5;
   let retryCount = 0;
   let reconnectTimer: number | null = null;
   let isConnected = false;
   let lastConnectedTime = Date.now();
-  let isReconnecting = false;
 
   const clearReconnectTimer = () => {
     if (reconnectTimer) {
@@ -24,37 +23,30 @@ if (import.meta.hot) {
   };
 
   const shouldAttemptReconnect = () => {
-    if (isReconnecting) return false;
     const timeSinceLastConnection = Date.now() - lastConnectedTime;
-    return timeSinceLastConnection > 3000; // Only attempt reconnect if more than 3 seconds since last connection
+    return !isConnected && timeSinceLastConnection > 2000;
   };
 
-  const reconnect = async () => {
+  const reconnect = () => {
     if (retryCount >= maxRetries) {
-      console.warn('[HMR] Max retries reached, waiting for server...');
-      retryCount = 0;
+      console.warn('[HMR] Max retries reached, performing page reload...');
+      window.location.reload();
       return;
     }
 
-    if (!isConnected && shouldAttemptReconnect() && !isReconnecting) {
-      isReconnecting = true;
+    if (shouldAttemptReconnect()) {
       clearReconnectTimer();
       
-      const backoffDelay = Math.min(1000 * Math.pow(1.5, retryCount), 10000);
+      const backoffDelay = Math.min(1000 * Math.pow(1.5, retryCount), 5000);
       console.log(`[HMR] Attempting to reconnect (${retryCount + 1}/${maxRetries}) in ${backoffDelay}ms`);
       
-      reconnectTimer = window.setTimeout(async () => {
+      reconnectTimer = window.setTimeout(() => {
         try {
-          console.log('[HMR] Sending ping...');
-          await import.meta.hot?.send('ping');
+          import.meta.hot?.send('ping');
           retryCount++;
         } catch (error) {
           console.error('[HMR] Failed to send ping:', error);
-        } finally {
-          isReconnecting = false;
-          if (!isConnected) {
-            reconnect();
-          }
+          reconnect();
         }
       }, backoffDelay);
     }
@@ -62,7 +54,7 @@ if (import.meta.hot) {
 
   // Handle successful connection
   import.meta.hot.on('vite:connect', () => {
-    console.log('[HMR] Connected successfully');
+    console.log('[HMR] Connected');
     isConnected = true;
     retryCount = 0;
     lastConnectedTime = Date.now();
@@ -72,11 +64,6 @@ if (import.meta.hot) {
   // Handle before update
   import.meta.hot.on('vite:beforeUpdate', (payload: any) => {
     console.log('[HMR] Applying update:', payload);
-  });
-
-  // Handle prune
-  import.meta.hot.on('vite:prune', (data: any) => {
-    console.log('[HMR] Module pruned:', data);
   });
 
   // Handle disconnect
@@ -89,30 +76,19 @@ if (import.meta.hot) {
   // Handle errors
   import.meta.hot.on('vite:error', (err: Error) => {
     console.error('[HMR] Error:', err);
-    isConnected = false;
     reconnect();
   });
 
   // Handle WebSocket related errors
   window.addEventListener('unhandledrejection', (event) => {
-    const errorMessage = event.reason?.message || '';
-    const isWebSocketError = 
-      errorMessage.includes('WebSocket') || 
-      errorMessage.includes('Failed to fetch') || 
-      errorMessage.includes('_hmr') ||
-      errorMessage.includes('connection lost') ||
-      errorMessage.includes('network error');
-
-    if (isWebSocketError) {
+    if (event.reason?.message?.includes('WebSocket') || 
+        event.reason?.message?.includes('Failed to fetch') ||
+        event.reason?.message?.includes('_hmr')) {
       console.warn('[HMR] Connection issue:', event.reason);
       event.preventDefault();
-      isConnected = false;
       reconnect();
     }
   });
-
-  // Initialize connection status
-  console.log('[HMR] Initializing connection...');
 }
 
 createRoot(root).render(
