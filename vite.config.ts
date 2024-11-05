@@ -5,7 +5,7 @@ import path from "path";
 // Get Replit domain information
 const replitDomain = process.env.REPL_SLUG && process.env.REPL_OWNER
   ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : 'localhost';
+  : null;
 
 export default defineConfig({
   plugins: [react()],
@@ -31,20 +31,29 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     port: 3001,
+    strictPort: true,
     hmr: {
       protocol: replitDomain ? 'wss' : 'ws',
-      host: replitDomain,
+      host: replitDomain || undefined,
       clientPort: replitDomain ? 443 : 3001,
-      path: '/_hmr',
-      timeout: 60000
+      timeout: 60000,
+      overlay: {
+        errors: true,
+        warnings: true
+      }
+    },
+    watch: {
+      usePolling: true,
+      interval: 1000
     },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        ws: true
       }
     }
   }

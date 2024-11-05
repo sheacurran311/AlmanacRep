@@ -10,25 +10,25 @@ if (!root) {
 
 // Enhanced WebSocket error handling and reconnection logic
 if (import.meta.hot) {
-  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
   const wsHost = import.meta.env.DEV ? window.location.hostname : window.location.host;
-  const wsPort = import.meta.env.DEV ? '3001' : window.location.port;
-  const wsUrl = `${wsProtocol}//${wsHost}${wsPort ? `:${wsPort}` : ''}/_hmr`;
+  const wsPort = import.meta.env.DEV && !window.location.hostname.includes('.repl.co') ? ':3001' : '';
+  const wsUrl = `${wsProtocol}//${wsHost}${wsPort}/_hmr`;
   
-  console.log('[HMR] Initial connection attempt to:', wsUrl);
+  console.log('[HMR] Configuring WebSocket connection:', wsUrl);
   
   let reconnectAttempts = 0;
-  const maxReconnectAttempts = 5;
-  let reconnectTimeout: number | null = null;
+  const maxReconnectAttempts = 10;
+  let reconnectTimeout: number | undefined;
   
   const handleConnectionError = () => {
     if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout);
+      window.clearTimeout(reconnectTimeout);
     }
 
     if (reconnectAttempts < maxReconnectAttempts) {
       reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 5000);
+      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 10000);
       console.log(`[HMR] Reconnection attempt ${reconnectAttempts} of ${maxReconnectAttempts} in ${delay}ms`);
       
       reconnectTimeout = window.setTimeout(() => {
@@ -39,45 +39,19 @@ if (import.meta.hot) {
       }, delay);
     } else {
       console.error('[HMR] Maximum reconnection attempts reached');
-      const overlay = document.createElement('div');
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.85);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: Arial, sans-serif;
-        z-index: 9999;
-      `;
-      overlay.innerHTML = `
-        <div style="text-align: center; padding: 20px;">
-          <h2>Development Server Connection Lost</h2>
-          <p>The connection to the development server was lost.</p>
-          <button onclick="window.location.reload()" style="
-            padding: 10px 20px;
-            background: #646cff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-          ">Reload Page</button>
-        </div>
-      `;
-      document.body.appendChild(overlay);
+      // Only reload if we're not in a Replit environment
+      if (!window.location.hostname.includes('.repl.co')) {
+        window.location.reload();
+      }
     }
   };
 
-  import.meta.hot.on('vite:beforeUpdate', () => {
-    console.log('[HMR] Update received');
+  import.meta.hot.on('vite:beforeUpdate', (payload: any) => {
+    console.log('[HMR] Update received:', payload.type);
     reconnectAttempts = 0;
   });
 
-  import.meta.hot.on('vite:error', (err: any) => {
+  import.meta.hot.on('vite:error', (err: Error) => {
     console.error('[HMR] Error:', err);
     handleConnectionError();
   });
@@ -88,13 +62,18 @@ if (import.meta.hot) {
   });
 
   import.meta.hot.on('vite:ws:connect', () => {
-    console.log('[HMR] WebSocket connected');
+    console.log('[HMR] WebSocket connected successfully');
     reconnectAttempts = 0;
-    // Remove any existing overlay
-    const overlay = document.querySelector('div[style*="position: fixed"]');
-    if (overlay) {
-      overlay.remove();
+    if (reconnectTimeout) {
+      window.clearTimeout(reconnectTimeout);
+      reconnectTimeout = undefined;
     }
+  });
+
+  // Handle unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    console.warn('[HMR] Unhandled promise rejection:', event.reason);
+    event.preventDefault();
   });
 }
 
