@@ -35,15 +35,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: {
+      clientPort: 443,
+      path: '/_hmr',
+      timeout: 120000,
       protocol: 'wss',
       host: replitDomain,
-      clientPort: 443,
-      timeout: 60000,
-      overlay: true,
-      path: '/_hmr',
-      reconnect: true,
-      maxRetries: 5,
-      reloadOnFailure: true
+      overlay: false
     },
     proxy: {
       '/api': {
@@ -52,10 +49,6 @@ export default defineConfig({
         secure: false,
         ws: true
       }
-    },
-    watch: {
-      usePolling: true,
-      interval: 1000
     }
   }
 });

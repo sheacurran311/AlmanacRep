@@ -45,12 +45,11 @@ app.use(helmet({
 
 // CORS configuration with WebSocket support
 const corsOptions = {
-  origin: true,
+  origin: ['https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
   credentials: true,
-  maxAge: 86400,
-  optionsSuccessStatus: 204
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
