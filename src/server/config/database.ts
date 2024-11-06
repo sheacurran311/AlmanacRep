@@ -7,9 +7,10 @@ const poolConfig: PoolConfig = {
   database: process.env.PGDATABASE,
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
-  ssl: process.env.NODE_ENV === 'production' 
-    ? { rejectUnauthorized: false }
-    : undefined
+  ssl: {
+    rejectUnauthorized: false,
+    sslmode: 'require'
+  }
 };
 
 const pool = new Pool(poolConfig);

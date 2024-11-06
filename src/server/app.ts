@@ -34,7 +34,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:3000", "http://localhost:5173"],
       imgSrc: ["'self'", "data:", "blob:"],
       fontSrc: ["'self'", "data:"],
     }
@@ -45,7 +45,14 @@ app.use(helmet({
 
 // CORS configuration with WebSocket support
 const corsOptions = {
-  origin: ['https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co'],
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    ...(process.env.REPL_SLUG && process.env.REPL_OWNER 
+      ? [`https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`] 
+      : []
+    )
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
   credentials: true,

@@ -12,6 +12,7 @@ interface DatabaseError extends Error {
   constraint?: string;
 }
 
+// Use environment variables with consistent port configuration
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
   port: parseInt(process.env.PGPORT || '5432'),
@@ -19,29 +20,12 @@ const poolConfig: PoolConfig = {
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    sslmode: 'require'
   }
 };
 
 const pool = new Pool(poolConfig);
-
-const supabaseConfig = {
-  db: {
-    schema: 'public',
-  },
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    },
-    reconnectAfterMs: (retryCount: number) => 
-      Math.min(1000 + retryCount * 2000, 10000)
-  }
-};
 
 export class DatabaseManager {
   static async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
@@ -53,7 +37,8 @@ export class DatabaseManager {
       console.error('Database query error:', {
         message: dbError.message,
         code: dbError.code,
-        detail: dbError.detail
+        detail: dbError.detail,
+        schema: dbError.schema
       });
       throw error;
     } finally {
@@ -78,5 +63,4 @@ export class DatabaseManager {
 }
 
 export const query = DatabaseManager.query.bind(DatabaseManager);
-export { supabaseConfig };
 export default pool;
