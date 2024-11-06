@@ -13,7 +13,7 @@ import { Link } from 'react-router-dom';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import almanacLogo from '@client/assets/almanaclogo.png';
+import almanacLogo from '../../assets/almanaclogo.png';
 
 const Footer: React.FC = () => {
   const theme = useTheme();
@@ -37,6 +37,11 @@ const Footer: React.FC = () => {
               <img
                 src={almanacLogo}
                 alt="Almanac Labs"
+                loading="lazy"
+                onError={(e) => {
+                  console.error('Error loading logo:', e);
+                  e.currentTarget.src = '/fallback-logo.png';
+                }}
                 style={{
                   height: '50px',
                   width: 'auto',

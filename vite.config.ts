@@ -9,7 +9,13 @@ export default defineConfig({
   build: {
     outDir: "../../dist/client",
     emptyOutDir: true,
-    sourcemap: true
+    sourcemap: true,
+    assetsInlineLimit: 4096,
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name].[hash][extname]'
+      }
+    }
   },
   resolve: {
     alias: {
