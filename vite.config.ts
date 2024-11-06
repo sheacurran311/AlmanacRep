@@ -38,7 +38,7 @@ export default defineConfig({
       clientPort: 443,
       protocol: 'wss',
       host: replitDomain,
-      timeout: 60000,
+      timeout: 120000,
       path: '/_hmr'
     },
     proxy: {

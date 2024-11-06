@@ -13,7 +13,7 @@ interface DatabaseError extends Error {
 }
 
 const poolConfig: PoolConfig = {
-  host: process.env.PGHOST || 'localhost',
+  host: process.env.PGHOST,
   port: parseInt(process.env.PGPORT || '5432'),
   database: process.env.PGDATABASE,
   user: process.env.PGUSER,
