@@ -1,0 +1,152 @@
+import React from 'react';
+import { Box, Container, Typography, Button, Grid, Paper } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import heroImage from '../assets/hero-image.png'; // Example image import
+
+const Home: React.FC = () => {
+  const navigate = useNavigate();
+
+  return (
+    <Box>
+      {/* Hero Section */}
+      <Box sx={{ background: 'linear-gradient(135deg, #101636, #5384c8)', color: 'white', py: 8 }}>
+        <Container maxWidth="lg">
+          <Grid container spacing={4} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Typography variant="h2" gutterBottom>
+                Almanac Labs
+              </Typography>
+              <Typography variant="h5" gutterBottom>
+                Revolutionizing Loyalty & Rewards Programs
+              </Typography>
+              <Typography variant="body1" gutterBottom>
+                Almanac Labs is building a platform for sports teams and leagues, sporting events, musicians, and artists to offer unique loyalty and rewards programs for their fans with the power of blockchain and Web3.
+              </Typography>
+              <Button
+                variant="contained"
+                sx={{ mt: 4, background: 'linear-gradient(135deg, #dd20be, #5384c8)', color: 'white' }}
+                size="large"
+                onClick={() => navigate('/register')}
+              >
+                Get Started
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Box sx={{ textAlign: 'center' }}>
+                <img src={heroImage} alt="Hero" style={{ maxWidth: '100%', height: 'auto' }} />
+              </Box>
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
+
+      {/* Offering Section */}
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography variant="h3" align="center" gutterBottom>
+          Who We Help
+        </Typography>
+        <Typography variant="body1" align="center" sx={{ maxWidth: 600, mx: 'auto', mb: 4 }}>
+          Almanac Labs helps sports teams, leagues, events, musicians, and artists engage their fans with unique and innovative loyalty programs that offer more than just points.
+        </Typography>
+        <Grid container spacing={4} sx={{ mt: 4 }}>
+          {[
+            {
+              title: 'Sports Teams & Leagues',
+              description: 'Reward your fans with exclusive NFTs and live event moments. Create loyalty programs that go beyond points and foster deeper engagement.'
+            },
+            {
+              title: 'Musicians & Artists',
+              description: 'Connect with your audience by offering collectible NFTs, exclusive AR experiences, and unique digital rewards to build lifelong fan loyalty.'
+            },
+            {
+              title: 'Live Events',
+              description: 'Capture live event moments and distribute them as NFTs to attendees, creating a memorable and rewarding experience for all fans.'
+            }
+          ].map((offering) => (
+            <Grid item xs={12} md={4} key={offering.title}>
+              <Paper sx={{ p: 3, height: '100%', transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
+                <Typography variant="h5" gutterBottom>
+                  {offering.title}
+                </Typography>
+                <Typography color="text.secondary">
+                  {offering.description}
+                </Typography>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+
+      {/* Features Section */}
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography variant="h3" align="center" gutterBottom>
+          Features
+        </Typography>
+        <Typography variant="body1" align="center" sx={{ maxWidth: 600, mx: 'auto', mb: 4 }}>
+          Harness the power of blockchain to create unique experiences that incentivize engagement and offer unparalleled rewards for fans.
+        </Typography>
+        <Grid container spacing={4} sx={{ mt: 4 }}>
+          {[
+            {
+              title: 'NFT and cNFT Rewards',
+              description: 'Engage fans with unique digital collectibles from live events that can be earned, traded, and shared to foster fan engagement and loyalty.'
+            },
+            {
+              title: 'AR Experiences',
+              description: 'Create immersive augmented reality experiences that make your loyalty program more interactive and memorable while unlocking a new revenue potential from sponsors.'
+            },
+            {
+              title: 'Multi-tenant Platform',
+              description: 'Scale your loyalty program across multiple brands or partners with ease, managing everything from a single platform.'
+            },
+            {
+              title: 'Real-time Analytics',
+              description: 'Gain valuable insights into customer behavior and program performance with powerful analytics tools.'
+            },
+            {
+              title: 'Customizable Campaigns',
+              description: 'Easily create and manage promotional campaigns tailored to your customer segments.'
+            },
+            {
+              title: 'Secure Blockchain Integration',
+              description: 'Ensure data integrity and transparency with secure blockchain technology.'
+            },
+          ].map((feature) => (
+            <Grid item xs={12} md={4} key={feature.title}>
+              <Paper sx={{ p: 3, height: '100%', transition: 'transform 0.3s', '&:hover': { transform: 'scale(1.05)' } }}>
+                <Typography variant="h5" gutterBottom>
+                  {feature.title}
+                </Typography>
+                <Typography color="text.secondary">
+                  {feature.description}
+                </Typography>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+
+      {/* Call to Action Section */}
+      <Box sx={{ background: 'linear-gradient(135deg, #dd20be, #5384c8)', color: 'white', py: 6 }}>
+        <Container maxWidth="md" sx={{ textAlign: 'center' }}>
+          <Typography variant="h4" gutterBottom>
+            Ready to revolutionize your loyalty program?
+          </Typography>
+          <Typography variant="body1" gutterBottom>
+            Join Almanac Labs today and start creating experiences your fans will love.
+          </Typography>
+          <Button
+            variant="contained"
+            sx={{ mt: 4, background: 'linear-gradient(135deg, #101636, #5384c8)', color: 'white' }}
+            size="large"
+            onClick={() => navigate('/register')}
+          >
+            Get Started Now
+          </Button>
+        </Container>
+      </Box>
+    </Box>
+  );
+};
+
+export default Home;
