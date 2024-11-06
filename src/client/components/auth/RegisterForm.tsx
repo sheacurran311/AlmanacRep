@@ -69,7 +69,15 @@ const RegisterForm: React.FC = () => {
           throw new Error(data.message || 'Registration failed');
         }
 
-        navigate('/login', { state: { registered: true } });
+        // Store token if provided
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+
+        navigate(data.token ? '/admin' : '/login', { 
+          state: { registered: true } 
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Registration failed');
       } finally {
@@ -79,7 +87,13 @@ const RegisterForm: React.FC = () => {
   });
 
   return (
-    <Box component="form" onSubmit={formik.handleSubmit} noValidate>
+    <Box 
+      component="form" 
+      onSubmit={formik.handleSubmit} 
+      noValidate
+      role="form"
+      aria-label="Registration form"
+    >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -91,8 +105,8 @@ const RegisterForm: React.FC = () => {
         required
         fullWidth
         id="fullName"
-        label="Full Name"
         name="fullName"
+        label="Full Name"
         autoComplete="name"
         autoFocus
         value={formik.values.fullName}
@@ -100,6 +114,10 @@ const RegisterForm: React.FC = () => {
         onBlur={formik.handleBlur}
         error={formik.touched.fullName && Boolean(formik.errors.fullName)}
         helperText={formik.touched.fullName && formik.errors.fullName}
+        inputProps={{
+          'aria-label': 'Full name',
+          'aria-required': 'true'
+        }}
       />
 
       <TextField
@@ -107,14 +125,18 @@ const RegisterForm: React.FC = () => {
         required
         fullWidth
         id="email"
-        label="Company Email"
         name="email"
+        label="Company Email"
         autoComplete="email"
         value={formik.values.email}
         onChange={formik.handleChange}
         onBlur={formik.handleBlur}
         error={formik.touched.email && Boolean(formik.errors.email)}
         helperText={formik.touched.email && formik.errors.email}
+        inputProps={{
+          'aria-label': 'Company email',
+          'aria-required': 'true'
+        }}
       />
 
       <TextField
@@ -122,13 +144,17 @@ const RegisterForm: React.FC = () => {
         required
         fullWidth
         id="companyName"
-        label="Company Name"
         name="companyName"
+        label="Company Name"
         value={formik.values.companyName}
         onChange={formik.handleChange}
         onBlur={formik.handleBlur}
         error={formik.touched.companyName && Boolean(formik.errors.companyName)}
         helperText={formik.touched.companyName && formik.errors.companyName}
+        inputProps={{
+          'aria-label': 'Company name',
+          'aria-required': 'true'
+        }}
       />
 
       <TextField
@@ -145,6 +171,10 @@ const RegisterForm: React.FC = () => {
         onBlur={formik.handleBlur}
         error={formik.touched.password && Boolean(formik.errors.password)}
         helperText={formik.touched.password && formik.errors.password}
+        inputProps={{
+          'aria-label': 'Password',
+          'aria-required': 'true'
+        }}
       />
 
       <TextField
@@ -160,6 +190,10 @@ const RegisterForm: React.FC = () => {
         onBlur={formik.handleBlur}
         error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
         helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
+        inputProps={{
+          'aria-label': 'Confirm password',
+          'aria-required': 'true'
+        }}
       />
 
       <Button
@@ -168,6 +202,7 @@ const RegisterForm: React.FC = () => {
         variant="contained"
         sx={{ mt: 3, mb: 2 }}
         disabled={loading || !formik.isValid || !formik.dirty}
+        aria-label="Register"
       >
         {loading ? <CircularProgress size={24} /> : 'Register'}
       </Button>
@@ -177,6 +212,7 @@ const RegisterForm: React.FC = () => {
         variant="text"
         onClick={() => navigate('/login')}
         sx={{ mt: 1 }}
+        aria-label="Go to login"
       >
         Already have an account? Sign in
       </Button>
