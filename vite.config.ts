@@ -38,9 +38,12 @@ export default defineConfig({
       protocol: 'wss',
       host: replitDomain,
       clientPort: 443,
+      timeout: 60000,
+      overlay: true,
       path: '/_hmr',
-      timeout: 120000,
-      overlay: false
+      reconnect: true,
+      maxRetries: 5,
+      reloadOnFailure: true
     },
     proxy: {
       '/api': {

@@ -1,1 +1,1 @@
-// This file is removed in favor of Analytics/index.tsx
+// This file is removed in favor of src/client/components/admin/Analytics/index.tsx
