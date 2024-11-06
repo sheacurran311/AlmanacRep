@@ -37,7 +37,13 @@ const startServer = async () => {
     
     // Start server
     server.listen(port, '0.0.0.0', () => {
-      console.log(`[${new Date().toISOString()}] [SERVER] Server is running at http://0.0.0.0:${port}`);
+      const addresses = [
+        `http://localhost:${port}`,
+        `http://127.0.0.1:${port}`,
+        `http://0.0.0.0:${port}`
+      ];
+      console.log(`[${new Date().toISOString()}] [SERVER] Server is running on:`);
+      addresses.forEach(addr => console.log(`- ${addr}`));
       console.log(`[${new Date().toISOString()}] [SERVER] Using database on port ${process.env.PGPORT}`);
     });
 

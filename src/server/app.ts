@@ -43,32 +43,34 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration with WebSocket support
+// CORS configuration with Postman support
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow any origin in development, specific origins in production
+    // Allow requests with no origin (like Postman)
+    if (!origin) {
+      return callback(null, true);
+    }
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co',
-      'https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-5173.proxy.repl.co'
+      'http://0.0.0.0:3000',
+      'http://127.0.0.1:3000',
+      'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co'
     ];
-
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('Blocked by CORS:', origin);
-      callback(null, true); // Allow in development mode
-    }
+    callback(null, allowedOrigins.includes(origin));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
 app.use(cors(corsOptions));
+
+// Add a root endpoint for testing
+app.get('/', (req, res) => {
+  res.json({ message: 'API server is running' });
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
