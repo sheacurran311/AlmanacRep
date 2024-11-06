@@ -15,7 +15,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@client/hooks/useAuth';
-import almanacLogo from '../../assets/almanaclogo.png';
+import almanacLogo from '@client/assets/almanaclogo.png';
 
 const pages = [
   { title: 'Home', path: '/' },
@@ -66,15 +66,16 @@ const Header: React.FC = () => {
               <img
                 src={almanacLogo}
                 alt="Almanac Labs"
+                style={{
+                  height: '40px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))'
+                }}
                 loading="lazy"
                 onError={(e) => {
                   console.error('Error loading logo:', e);
-                  e.currentTarget.src = '/fallback-logo.png';
-                }}
-                style={{ 
-                  height: '40px',
-                  width: 'auto',
-                  transition: 'transform 0.3s ease'
+                  e.currentTarget.style.opacity = '0.5';
                 }}
               />
             </Link>
@@ -138,14 +139,16 @@ const Header: React.FC = () => {
               <img
                 src={almanacLogo}
                 alt="Almanac Labs"
+                style={{
+                  height: '40px',
+                  width: 'auto',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))'
+                }}
                 loading="lazy"
                 onError={(e) => {
                   console.error('Error loading logo:', e);
-                  e.currentTarget.src = '/fallback-logo.png';
-                }}
-                style={{ 
-                  height: '40px',
-                  width: 'auto'
+                  e.currentTarget.style.opacity = '0.5';
                 }}
               />
             </Link>

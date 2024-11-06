@@ -10,10 +10,14 @@ export default defineConfig({
     outDir: "../../dist/client",
     emptyOutDir: true,
     sourcemap: true,
-    assetsInlineLimit: 4096,
     rollupOptions: {
       output: {
-        assetFileNames: 'assets/[name].[hash][extname]'
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name === 'almanaclogo.png') {
+            return 'assets/[name][extname]';
+          }
+          return 'assets/[name].[hash][extname]';
+        }
       }
     }
   },
