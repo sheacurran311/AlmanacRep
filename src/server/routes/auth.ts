@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { login, register } from '../controllers/authController.js';
-import { validateLoginInput } from '@middleware/validation.js';
+import { validateLoginInput, validateRegistrationInput } from '../../middleware/validation.js';
 import { Request, Response } from 'express';
 import type { LoginRequest, RegistrationRequest } from '../controllers/authController.js';
 
@@ -15,7 +15,7 @@ router.post('/login', validateLoginInput, async (req: Request<{}, {}, LoginReque
   }
 });
 
-router.post('/register', async (req: Request<{}, {}, RegistrationRequest>, res: Response) => {
+router.post('/register', validateRegistrationInput, async (req: Request<{}, {}, RegistrationRequest>, res: Response) => {
   try {
     await register(req, res);
   } catch (error) {

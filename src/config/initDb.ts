@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DatabaseManager } from '@/config/database';
-import { createTenantSchema } from '@/config/supabase';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +14,10 @@ export const initializeDatabase = async (): Promise<boolean> => {
     await DatabaseManager.query('SELECT NOW()');
     console.log('Database connection successful');
 
+    // Enable UUID extension first
+    console.log('Enabling UUID extension...');
+    await DatabaseManager.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+    
     // Read and execute schema in chunks to better handle errors
     console.log('Reading schema file...');
     const schemaPath = path.join(__dirname, 'schema.sql');
@@ -28,7 +31,7 @@ export const initializeDatabase = async (): Promise<boolean> => {
     // Create default tenant if it doesn't exist
     console.log('Creating default tenant...');
     const tenantResult = await DatabaseManager.query(
-      `INSERT INTO tenants (name, api_key) 
+      `INSERT INTO tenants (company_name, api_key) 
        VALUES ('Default Tenant', 'default-api-key') 
        ON CONFLICT (api_key) DO NOTHING 
        RETURNING id`
@@ -38,14 +41,14 @@ export const initializeDatabase = async (): Promise<boolean> => {
       const tenantId = tenantResult.rows[0].id;
       console.log('Default tenant created, initializing tenant schema...');
       
-      // Create tenant schema
-      await createTenantSchema(tenantId.toString());
+      // Create tenant schema using the database function
+      await DatabaseManager.query('SELECT create_tenant_schema($1)', [tenantId]);
       
       // Create default admin user
       console.log('Creating admin user...');
       await DatabaseManager.query(
-        `INSERT INTO users (tenant_id, email, password_hash, role) 
-         VALUES ($1, 'admin@example.com', 'default-hash', 'admin') 
+        `INSERT INTO users (tenant_id, email, full_name, password_hash, role) 
+         VALUES ($1, 'admin@example.com', 'Admin User', 'default-hash', 'admin') 
          ON CONFLICT (email, tenant_id) DO NOTHING`,
         [tenantId]
       );

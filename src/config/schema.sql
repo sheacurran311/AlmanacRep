@@ -1,218 +1,183 @@
--- Create role types enum if not exists
-DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('super_admin', 'tenant_admin', 'manager', 'user');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+-- Enable UUID extension first
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Enhanced tenants table with more configuration options
+-- Drop existing objects first in correct order
+DROP TABLE IF EXISTS points_transactions CASCADE;
+DROP TABLE IF EXISTS loyalty_points CASCADE;
+DROP TABLE IF EXISTS web3_wallets CASCADE;
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS campaigns CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;
+
+DROP TRIGGER IF EXISTS update_loyalty_timestamp ON loyalty_points;
+DROP TRIGGER IF EXISTS update_campaign_timestamp ON campaigns;
+DROP TRIGGER IF EXISTS update_user_timestamp ON users;
+DROP TRIGGER IF EXISTS update_tenant_timestamp ON tenants;
+DROP FUNCTION IF EXISTS update_updated_at();
+
+-- Create schema functions
+CREATE OR REPLACE FUNCTION create_tenant_schema(tenant_id uuid)
+RETURNS void AS $$
+DECLARE
+    schema_name text;
+BEGIN
+    schema_name := 'tenant_' || replace(tenant_id::text, '-', '_');
+    
+    -- Create schema
+    EXECUTE 'CREATE SCHEMA IF NOT EXISTS ' || schema_name;
+    
+    -- Create tenant-specific tables
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || schema_name || '.tenant_settings (
+        key VARCHAR(255) PRIMARY KEY,
+        value JSONB NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )';
+    
+    EXECUTE 'CREATE TABLE IF NOT EXISTS ' || schema_name || '.tenant_audit_logs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        action VARCHAR(255) NOT NULL,
+        entity_type VARCHAR(255) NOT NULL,
+        entity_id VARCHAR(255) NOT NULL,
+        user_id UUID,
+        metadata JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )';
+    
+    -- Set default privileges
+    EXECUTE 'ALTER DEFAULT PRIVILEGES IN SCHEMA ' || schema_name || 
+            ' GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO PUBLIC';
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create tenants table with UUID
 CREATE TABLE IF NOT EXISTS tenants (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    api_key VARCHAR(255) UNIQUE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_name VARCHAR(255) NOT NULL,
+    api_key VARCHAR(255) UNIQUE NOT NULL,
     settings JSONB DEFAULT '{}',
-    max_users INTEGER DEFAULT 10000,
-    max_rewards INTEGER DEFAULT 1000,
-    features JSONB DEFAULT '{"web3_enabled": false, "nft_enabled": false}',
+    features JSONB DEFAULT '{"nft_enabled": false, "ar_enabled": false}',
     status VARCHAR(50) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Enhanced users table with web3 and RBAC support
+-- Create users table with UUID and tenant relationship
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
-    email VARCHAR(255),
-    password_hash VARCHAR(255),
-    role user_role NOT NULL DEFAULT 'user',
-    permissions JSONB DEFAULT '{}',
-    last_login TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'user',
+    last_login TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(email, tenant_id)
 );
 
 -- Create web3_wallets table
 CREATE TABLE IF NOT EXISTS web3_wallets (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    tenant_id INTEGER REFERENCES tenants(id),
-    wallet_address VARCHAR(255) NOT NULL,
-    web3_metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(wallet_address, tenant_id)
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    address VARCHAR(255) NOT NULL,
+    chain_id INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, address, chain_id)
 );
 
--- Create rewards table
-CREATE TABLE IF NOT EXISTS rewards (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    points INTEGER NOT NULL,
-    reward_type VARCHAR(50) DEFAULT 'POINTS',
-    category VARCHAR(50),
-    target_audience JSONB DEFAULT '{}',
-    metadata JSONB DEFAULT '{}',
-    active BOOLEAN DEFAULT true,
-    start_date TIMESTAMP,
-    end_date TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create loyalty points table
-CREATE TABLE IF NOT EXISTS loyalty_points (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    tenant_id INTEGER REFERENCES tenants(id),
-    points INTEGER NOT NULL DEFAULT 0,
-    lifetime_points INTEGER NOT NULL DEFAULT 0,
-    tier VARCHAR(50) DEFAULT 'bronze',
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expiry_date TIMESTAMP,
-    points_history JSONB DEFAULT '[]',
-    UNIQUE(user_id, tenant_id)
-);
-
--- Create points transactions table
-CREATE TABLE IF NOT EXISTS points_transactions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    tenant_id INTEGER REFERENCES tenants(id),
-    points INTEGER NOT NULL,
-    transaction_type VARCHAR(50) NOT NULL,
-    reference_id VARCHAR(255),
-    category VARCHAR(50),
-    description TEXT,
-    metadata JSONB DEFAULT '{}',
-    status VARCHAR(50) DEFAULT 'completed',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMP
-);
-
--- Create merkle trees table
-CREATE TABLE IF NOT EXISTS merkle_trees (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
-    max_depth INTEGER NOT NULL,
-    max_buffer_size INTEGER NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create tenant settings table
-CREATE TABLE IF NOT EXISTS tenant_settings (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
-    key VARCHAR(255) NOT NULL,
-    value JSONB NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(tenant_id, key)
-);
-
--- Create audit logs table
+-- Create audit_logs table
 CREATE TABLE IF NOT EXISTS audit_logs (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     action VARCHAR(255) NOT NULL,
     entity_type VARCHAR(255) NOT NULL,
     entity_id VARCHAR(255) NOT NULL,
-    user_id INTEGER REFERENCES users(id),
     metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create tenant namespaces table
-CREATE TABLE IF NOT EXISTS tenant_namespaces (
-    id SERIAL PRIMARY KEY,
-    tenant_id INTEGER REFERENCES tenants(id) UNIQUE,
-    schema_name VARCHAR(255) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Create campaigns table with UUID
+CREATE TABLE IF NOT EXISTS campaigns (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    start_date TIMESTAMP WITH TIME ZONE,
+    end_date TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) DEFAULT 'draft',
+    campaign_type VARCHAR(50) NOT NULL,
+    points_value INTEGER DEFAULT 0,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Enable Row Level Security
-DO $$ 
-BEGIN
-    ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE rewards ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE loyalty_points ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE points_transactions ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE merkle_trees ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY;
-    ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
-EXCEPTION
-    WHEN undefined_table THEN
-        NULL;
-END $$;
+-- Create loyalty_points table with UUID
+CREATE TABLE IF NOT EXISTS loyalty_points (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    points INTEGER NOT NULL DEFAULT 0,
+    tier VARCHAR(50) DEFAULT 'bronze',
+    lifetime_points INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(tenant_id, user_id)
+);
 
--- Create RLS Policies with proper error handling
-DO $$ 
-BEGIN
-    DROP POLICY IF EXISTS tenant_isolation_policy ON tenants;
-    CREATE POLICY tenant_isolation_policy ON tenants
-        USING (id::text = current_setting('app.current_tenant_id', true));
-EXCEPTION
-    WHEN undefined_table THEN
-        NULL;
-END $$;
+-- Create points_transactions table with UUID
+CREATE TABLE IF NOT EXISTS points_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+    points_amount INTEGER NOT NULL,
+    transaction_type VARCHAR(50) NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-DO $$ 
-BEGIN
-    DROP POLICY IF EXISTS tenant_user_isolation_policy ON users;
-    CREATE POLICY tenant_user_isolation_policy ON users
-        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
-EXCEPTION
-    WHEN undefined_table THEN
-        NULL;
-END $$;
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_tenants_company ON tenants(company_name);
+CREATE INDEX IF NOT EXISTS idx_campaigns_tenant ON campaigns(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_points_tenant ON points_transactions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_points_user ON points_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_loyalty_tenant_user ON loyalty_points(tenant_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_web3_wallets_user ON web3_wallets(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 
-DO $$ 
+-- Add trigger for updated_at
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
 BEGIN
-    DROP POLICY IF EXISTS tenant_reward_isolation_policy ON rewards;
-    CREATE POLICY tenant_reward_isolation_policy ON rewards
-        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
-EXCEPTION
-    WHEN undefined_table THEN
-        NULL;
-END $$;
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
 
-DO $$ 
-BEGIN
-    DROP POLICY IF EXISTS tenant_points_isolation_policy ON loyalty_points;
-    CREATE POLICY tenant_points_isolation_policy ON loyalty_points
-        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
-EXCEPTION
-    WHEN undefined_table THEN
-        NULL;
-END $$;
+-- Create triggers for updated_at
+CREATE TRIGGER update_tenant_timestamp
+    BEFORE UPDATE ON tenants
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
 
-DO $$ 
-BEGIN
-    DROP POLICY IF EXISTS tenant_transaction_isolation_policy ON points_transactions;
-    CREATE POLICY tenant_transaction_isolation_policy ON points_transactions
-        USING (tenant_id::text = current_setting('app.current_tenant_id', true));
-EXCEPTION
-    WHEN undefined_table THEN
-        NULL;
-END $$;
+CREATE TRIGGER update_user_timestamp
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
 
--- Add indexes with error handling
-DO $$ 
-BEGIN
-    CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
-    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-    CREATE INDEX IF NOT EXISTS idx_rewards_tenant ON rewards(tenant_id);
-    CREATE INDEX IF NOT EXISTS idx_rewards_type ON rewards(reward_type);
-    CREATE INDEX IF NOT EXISTS idx_points_tenant ON loyalty_points(tenant_id);
-    CREATE INDEX IF NOT EXISTS idx_points_user ON loyalty_points(user_id);
-    CREATE INDEX IF NOT EXISTS idx_transactions_tenant ON points_transactions(tenant_id);
-    CREATE INDEX IF NOT EXISTS idx_transactions_user ON points_transactions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_transactions_type ON points_transactions(transaction_type);
-EXCEPTION
-    WHEN undefined_table OR undefined_column THEN
-        NULL;
-END $$;
+CREATE TRIGGER update_campaign_timestamp
+    BEFORE UPDATE ON campaigns
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_loyalty_timestamp
+    BEFORE UPDATE ON loyalty_points
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
