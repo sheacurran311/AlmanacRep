@@ -4,7 +4,7 @@ import {
   TransactionMessage,
 } from '@metaplex-foundation/umi';
 import { DatabaseManager } from '../config/database.js';
-import { getTenantSchema } from '../config/supabase.js';
+import { getTenantSchema } from '../server/utils/dbUtils.js';
 
 interface CreateMerkleTreeParams {
   maxDepth: number;

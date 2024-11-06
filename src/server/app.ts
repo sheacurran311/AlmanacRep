@@ -74,14 +74,7 @@ app.get('*', (_req, res) => {
 });
 
 // Error handling middleware
-app.use((req, res, next) => {
-  res.status(404).json({ message: 'Not Found' });
-});
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Internal Server Error' });
-});
+app.use(errorHandler);
 
 export { app, server };
 export default app;

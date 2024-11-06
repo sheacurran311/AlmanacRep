@@ -19,7 +19,7 @@ router.post('/register', validateRegistrationInput, async (req: Request<{}, {}, 
   try {
     await register(req, res);
   } catch (error) {
-    console.error('Registration route error:', error);
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });

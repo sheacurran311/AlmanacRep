@@ -1,5 +1,5 @@
 import { DatabaseManager } from '../config/database';
-import { getTenantSchema } from '../config/supabase';
+import { getTenantSchema } from '../server/utils/dbUtils.js';
 
 export class AnalyticsService {
   private tenantId: string;
