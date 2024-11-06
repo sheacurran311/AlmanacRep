@@ -1,6 +1,6 @@
 import pkg from 'pg';
 const { Pool } = pkg;
-import type { PoolConfig, QueryResult, QueryResultRow, PoolClient } from 'pg';
+import type { PoolConfig, QueryResult, QueryResultRow } from 'pg';
 
 interface DatabaseError extends Error {
   code?: string;
@@ -20,14 +20,27 @@ const poolConfig: PoolConfig = {
   password: process.env.PGPASSWORD,
   ssl: {
     rejectUnauthorized: false,
-    sslmode: 'require'
-  }
+    mode: 'require'
+  },
+  // Add connection pool settings
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 };
 
 const pool = new Pool(poolConfig);
 
+// Add connection error handling
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
 export class DatabaseManager {
-  static async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+  static async query<T extends QueryResultRow = any>(
+    text: string,
+    params?: any[]
+  ): Promise<QueryResult<T>> {
     const client = await pool.connect();
     try {
       const startTime = Date.now();
@@ -48,21 +61,6 @@ export class DatabaseManager {
         schema: dbError.schema,
         timestamp: new Date().toISOString()
       });
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  static async transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await callback(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (error) {
-      await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();

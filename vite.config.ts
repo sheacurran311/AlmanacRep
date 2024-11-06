@@ -2,11 +2,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-// Get Replit domain information
-const replitDomain = process.env.REPL_SLUG && process.env.REPL_OWNER
-  ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : 'localhost';
-
 export default defineConfig({
   plugins: [react()],
   root: "src/client",
@@ -34,18 +29,24 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    hmr: {
+      clientPort: 443,
+      protocol: 'wss',
+      path: '/_hmr',
+      timeout: 120000,
+      overlay: true
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://0.0.0.0:3000',
         changeOrigin: true,
         secure: false,
         ws: true
       }
     },
-    hmr: {
-      clientPort: 443,
-      protocol: 'wss',
-      host: replitDomain
+    watch: {
+      usePolling: true,
+      interval: 1000
     }
   }
 });

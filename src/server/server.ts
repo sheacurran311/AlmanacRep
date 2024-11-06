@@ -6,6 +6,9 @@ const startServer = async () => {
   try {
     console.log(`[${new Date().toISOString()}] [SERVER] Starting server initialization...`);
     
+    // Get port from environment or use default
+    const port = parseInt(process.env.PORT || '3000');
+    
     // Log PostgreSQL connection details (without sensitive info)
     console.log(`[${new Date().toISOString()}] [DATABASE] Connecting to PostgreSQL:
       Host: ${process.env.PGHOST}
@@ -32,60 +35,47 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    // Get port from environment or use default
-    const port = parseInt(process.env.PORT || '3000');
-    
-    // Start server
-    server.listen(port, '0.0.0.0', () => {
-      const addresses = [
-        `http://localhost:${port}`,
-        `http://127.0.0.1:${port}`,
-        `http://0.0.0.0:${port}`
-      ];
-      console.log(`[${new Date().toISOString()}] [SERVER] Server is running on:`);
-      addresses.forEach(addr => console.log(`- ${addr}`));
+    // Start server with proper binding
+    const serverInstance = server.listen(port, '0.0.0.0', () => {
+      console.log(`[${new Date().toISOString()}] [SERVER] Server is running on port ${port}`);
+      console.log(`[${new Date().toISOString()}] [SERVER] Access URLs:`);
+      console.log(`- Local: http://localhost:${port}`);
+      console.log(`- Network: http://0.0.0.0:${port}`);
       console.log(`[${new Date().toISOString()}] [SERVER] Using database on port ${process.env.PGPORT}`);
     });
 
-    // Handle server errors
-    server.on('error', (error: any) => {
+    // Add proper error handling
+    serverInstance.on('error', (error: NodeJS.ErrnoException) => {
       if (error.code === 'EADDRINUSE') {
         console.error(`[${new Date().toISOString()}] [SERVER] Port ${port} is already in use`);
-        server.close(() => {
-          console.log(`[${new Date().toISOString()}] [SERVER] Closed existing connections`);
-          setTimeout(() => {
-            server.listen(port, '0.0.0.0');
-          }, 1000);
-        });
+        process.exit(1);
       } else {
-        console.error(`[${new Date().toISOString()}] [SERVER] Error:`, error);
+        console.error(`[${new Date().toISOString()}] [SERVER] Server error:`, error);
         process.exit(1);
       }
     });
+
+    // Handle graceful shutdown
+    const shutdown = () => {
+      console.log('Received kill signal, shutting down gracefully');
+      serverInstance.close(() => {
+        console.log('Closed out remaining connections');
+        process.exit(0);
+      });
+
+      setTimeout(() => {
+        console.error('Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 
   } catch (error) {
     console.error(`[${new Date().toISOString()}] [SERVER] Failed to start server:`, error);
     process.exit(1);
   }
 };
-
-// Add graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
-  });
-});
-
-process.on('uncaughtException', (error) => {
-  console.error(`[${new Date().toISOString()}] [EXCEPTION] Uncaught Exception:`, error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error(`[${new Date().toISOString()}] [REJECTION] Unhandled Rejection:`, reason);
-  process.exit(1);
-});
 
 startServer();

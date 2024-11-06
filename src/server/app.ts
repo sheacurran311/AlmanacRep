@@ -43,20 +43,23 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration with Postman support
+// CORS configuration
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like Postman)
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
     const allowedOrigins = [
       'http://localhost:5173',
+      'http://0.0.0.0:5173',
       'http://localhost:3000',
       'http://0.0.0.0:3000',
-      'http://127.0.0.1:3000',
       'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co'
     ];
+    if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+      allowedOrigins.push(`https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+    }
     callback(null, allowedOrigins.includes(origin));
   },
   credentials: true,
@@ -66,11 +69,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Add a root endpoint for testing
-app.get('/', (req, res) => {
-  res.json({ message: 'API server is running' });
-});
 
 // API Routes
 app.use('/api/auth', authRoutes);
