@@ -34,13 +34,6 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
-    hmr: {
-      clientPort: 443,
-      protocol: 'wss',
-      host: replitDomain,
-      timeout: 120000,
-      path: '/_hmr'
-    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -48,6 +41,11 @@ export default defineConfig({
         secure: false,
         ws: true
       }
+    },
+    hmr: {
+      clientPort: 443,
+      protocol: 'wss',
+      host: replitDomain
     }
   }
 });

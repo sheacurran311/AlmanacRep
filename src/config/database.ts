@@ -30,14 +30,23 @@ export class DatabaseManager {
   static async query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
     const client = await pool.connect();
     try {
-      return await client.query<T>(text, params);
+      const startTime = Date.now();
+      const result = await client.query<T>(text, params);
+      const duration = Date.now() - startTime;
+      
+      if (duration > 1000) {
+        console.warn(`[${new Date().toISOString()}] [DATABASE] Slow query (${duration}ms):`, text);
+      }
+      
+      return result;
     } catch (error) {
       const dbError = error as DatabaseError;
-      console.error('Database query error:', {
+      console.error('[DATABASE] Query error:', {
         message: dbError.message,
         code: dbError.code,
         detail: dbError.detail,
-        schema: dbError.schema
+        schema: dbError.schema,
+        timestamp: new Date().toISOString()
       });
       throw error;
     } finally {

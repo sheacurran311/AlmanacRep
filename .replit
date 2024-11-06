@@ -19,6 +19,10 @@ args = "Server"
 task = "workflow.run"
 args = "Frontend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build and Start"
+
 [[workflows.workflow]]
 name = "Server"
 author = "agent"
@@ -48,6 +52,21 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "NODE_ENV=development vite --config vite.config.ts"
 waitForPort = 5173
+
+[[workflows.workflow]]
+name = "Build and Start"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build:client && npm run dev:server"
+waitForPort = 3000
 
 [deployment]
 run = ["sh", "-c", "NODE_ENV=development tsx watch src/server/server.ts"]

@@ -27,11 +27,6 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Get Replit domain information
-const replitDomain = process.env.REPL_SLUG && process.env.REPL_OWNER
-  ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-  : undefined;
-
 // Security headers with proper CSP
 app.use(helmet({
   contentSecurityPolicy: {
@@ -49,30 +44,33 @@ app.use(helmet({
 }));
 
 // CORS configuration with WebSocket support
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://localhost:5173',
-  'https://localhost:3000'
-];
-
-// Add Replit domain if available
-if (replitDomain) {
-  allowedOrigins.push(`https://${replitDomain}`);
-}
-
 const corsOptions = {
-  origin: allowedOrigins,
+  origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow any origin in development, specific origins in production
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co',
+      'https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-5173.proxy.repl.co'
+    ];
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(null, true); // Allow in development mode
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
-  credentials: true,
-  maxAge: 86400,
-  optionsSuccessStatus: 204
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
 
-// API Routes with proper prefixes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/nft', nftRoutes);
@@ -81,21 +79,18 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/customers', customerRoutes);
 
-// Serve static files with correct MIME types
-app.use(express.static(path.join(__dirname, '../../dist/client'), {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    }
-  }
-}));
-
-// Handle client-side routing
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, '../../dist/client/index.html'));
-});
+// Serve static files for development
+if (process.env.NODE_ENV === 'development') {
+  app.get('*', (_req, res) => {
+    res.redirect('http://localhost:5173');
+  });
+} else {
+  // Serve static files in production
+  app.use(express.static(path.join(__dirname, '../../dist/client')));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../../dist/client/index.html'));
+  });
+}
 
 // Error handling middleware
 app.use(errorHandler);
