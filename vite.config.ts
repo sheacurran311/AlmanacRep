@@ -42,26 +42,13 @@ export default defineConfig({
       overlay: false,
       path: '/_hmr',
       clientTracking: true,
-      reconnect: true,
-      webSocketServer: {
-        options: {
-          path: '/_hmr',
-          maxPayload: 1024 * 1024, // 1MB
-          skipUACheck: true,
-          perMessageDeflate: false,
-          heartbeat: {
-            interval: 15000,
-            timeout: 45000
-          }
-        }
-      }
+      reconnect: true
     },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        ws: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
         configure: (proxy) => {
           proxy.on('error', (err) => {
