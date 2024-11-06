@@ -35,38 +35,25 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: {
-      protocol: replitDomain === 'localhost' ? 'ws' : 'wss',
+      protocol: 'wss',
       host: replitDomain,
-      clientPort: replitDomain === 'localhost' ? 5173 : 443,
-      timeout: 60000,
-      overlay: false,
+      clientPort: 443,
       path: '/_hmr',
-      clientTracking: true,
-      reconnect: true
+      timeout: 120000,
+      overlay: false
     },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.error('[Proxy Error]:', err);
-          });
-          proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('[Proxy Request]:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (_proxyRes, req) => {
-            console.log('[Proxy Response]:', req.method, req.url);
-          });
-        }
+        ws: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     },
     watch: {
       usePolling: true,
-      interval: 1000,
-      binaryInterval: 3000
+      interval: 1000
     }
   }
 });
