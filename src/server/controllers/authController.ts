@@ -9,7 +9,6 @@ import { TenantManager } from '@services/tenantManager.js';
 export interface LoginRequest {
   email: string;
   password: string;
-  tenantId: string;
 }
 
 export interface RegistrationRequest {
@@ -63,7 +62,7 @@ export const register = async (
       const userResult = await DatabaseManager.query(
         `INSERT INTO users (tenant_id, email, full_name, password_hash, role)
          VALUES ($1, $2, $3, $4, 'tenant_admin')
-         RETURNING id, email, role`,
+         RETURNING id, email, role, tenant_id as "tenantId"`,
         [tenantId, email, fullName, passwordHash]
       );
 
@@ -73,7 +72,7 @@ export const register = async (
           userId: user.id,
           email: user.email,
           role: user.role,
-          tenantId
+          tenantId: user.tenantId
         },
         constants.JWT_SECRET,
         { expiresIn: '24h' }
@@ -84,12 +83,7 @@ export const register = async (
       res.status(201).json({
         message: 'Registration successful',
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          tenantId
-        }
+        user
       });
     } catch (error) {
       await DatabaseManager.query('ROLLBACK');
@@ -114,16 +108,16 @@ export const login = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { email, password, tenantId } = req.body;
+    const { email, password } = req.body;
 
-    if (!email || !password || !tenantId) {
-      throw new AuthError('Email, password, and tenant ID are required', 400);
+    if (!email || !password) {
+      throw new AuthError('Email and password are required', 400);
     }
 
-    // Verify credentials
-    const result = await DatabaseManager.query<UserResponse>(
-      'SELECT id, email, role, password_hash FROM users WHERE email = $1 AND tenant_id = $2',
-      [email, tenantId]
+    // Find user by email first
+    const result = await DatabaseManager.query<UserResponse & { password_hash: string }>(
+      'SELECT id, email, role, tenant_id as "tenantId", password_hash FROM users WHERE email = $1',
+      [email]
     );
 
     if (result.rows.length === 0) {
@@ -142,7 +136,7 @@ export const login = async (
         userId: user.id,
         email: user.email,
         role: user.role,
-        tenantId
+        tenantId: user.tenantId
       },
       constants.JWT_SECRET,
       { expiresIn: '24h' }
@@ -154,7 +148,9 @@ export const login = async (
       [user.id]
     );
 
-    res.json({ token, user });
+    // Remove password_hash from response
+    const { password_hash, ...userResponse } = user;
+    res.json({ token, user: userResponse });
   } catch (error) {
     if (error instanceof AuthError) {
       res.status(error.status).json({ message: error.message });

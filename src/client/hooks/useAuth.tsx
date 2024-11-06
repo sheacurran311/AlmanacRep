@@ -12,7 +12,7 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, tenantId: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   error: string | null;
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, tenantId: string) => {
+  const login = async (email: string, password: string) => {
     try {
       setError(null);
       const response = await fetch("/api/auth/login", {
@@ -64,7 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, tenantId }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
@@ -75,11 +75,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("tenantId", data.user.tenantId);
       setUser(data.user);
 
       // Only navigate to admin if user has admin role
       if (data.user.role.includes("admin")) {
-        navigate("/admin");
+        navigate("/admin/dashboard");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -90,6 +91,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("tenantId");
     setUser(null);
     navigate("/");
   };

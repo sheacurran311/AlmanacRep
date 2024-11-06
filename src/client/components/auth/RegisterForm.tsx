@@ -69,15 +69,16 @@ const RegisterForm: React.FC = () => {
           throw new Error(data.message || 'Registration failed');
         }
 
-        // Store token if provided
+        // Store token, user data, and tenantId in localStorage
         if (data.token) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('tenantId', data.user.tenantId);
+          // Navigate directly to admin dashboard
+          navigate('/admin/dashboard');
+        } else {
+          throw new Error('No authentication token received');
         }
-
-        navigate(data.token ? '/admin' : '/login', { 
-          state: { registered: true } 
-        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Registration failed');
       } finally {
