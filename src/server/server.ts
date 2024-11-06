@@ -24,7 +24,8 @@ const startServer = async () => {
       process.exit(1);
     }
 
-    const port = 3000;
+    // Get port from environment or use default
+    const port = parseInt(process.env.PORT || '3000');
 
     // Start server
     server.listen(port, '0.0.0.0', () => {

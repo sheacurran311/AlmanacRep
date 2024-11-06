@@ -31,12 +31,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
+      connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:3000", "http://localhost:5173"],
-      imgSrc: ["'self'", "data:", "blob:"],
-      fontSrc: ["'self'", "data:"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      fontSrc: ["'self'", 'data:']
     }
   },
   crossOriginEmbedderPolicy: false,
@@ -56,7 +56,8 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
   credentials: true,
-  maxAge: 86400
+  maxAge: 86400,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));

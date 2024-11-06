@@ -12,9 +12,8 @@ interface DatabaseError extends Error {
   constraint?: string;
 }
 
-// Use environment variables with consistent port configuration
 const poolConfig: PoolConfig = {
-  host: process.env.PGHOST,
+  host: process.env.PGHOST || 'localhost',
   port: parseInt(process.env.PGPORT || '5432'),
   database: process.env.PGDATABASE,
   user: process.env.PGUSER,

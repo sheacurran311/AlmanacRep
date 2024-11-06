@@ -1,0 +1,44 @@
+[vite] connecting...
+[vite] server connection lost. Polling for restart...
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+Failed to fetch
+The requested module '/components/admin/Analytics.tsx' does not provide an export named 'default'
+The requested module '/components/admin/Analytics.tsx' does not provide an export named 'default'
+The above error occurred in one of your React components:
+
+    at Lazy
+    at PrivateRoute (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/routes/index.tsx:42:25)
+    at RenderedRoute (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/react-router-dom.js?v=994c1dac:4069:5)
+    at Routes (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/react-router-dom.js?v=994c1dac:4508:5)
+    at Suspense
+    at AppRoutes
+    at DefaultPropsProvider (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-LPCMBRS3.js?v=994c1dac:5619:3)
+    at RtlProvider (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-LPCMBRS3.js?v=994c1dac:5595:3)
+    at ThemeProvider2 (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-LPCMBRS3.js?v=994c1dac:5551:5)
+    at ThemeProvider3 (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-LPCMBRS3.js?v=994c1dac:5702:5)
+    at ThemeProviderNoVars (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-SMCMZX2O.js?v=994c1dac:275:10)
+    at ThemeProvider (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-SMCMZX2O.js?v=994c1dac:357:3)
+    at AuthProvider (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/hooks/useAuth.tsx:34:32)
+    at Router (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/react-router-dom.js?v=994c1dac:4451:15)
+    at BrowserRouter (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/react-router-dom.js?v=994c1dac:5196:5)
+    at StyledEngineProvider (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-LPCMBRS3.js?v=994c1dac:2116:5)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.

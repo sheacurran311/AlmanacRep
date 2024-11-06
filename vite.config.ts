@@ -36,11 +36,10 @@ export default defineConfig({
     strictPort: true,
     hmr: {
       clientPort: 443,
-      path: '/_hmr',
-      timeout: 120000,
       protocol: 'wss',
       host: replitDomain,
-      overlay: false
+      timeout: 60000,
+      path: '/_hmr'
     },
     proxy: {
       '/api': {
