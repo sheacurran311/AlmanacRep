@@ -36,19 +36,18 @@ export default defineConfig({
     }
   },
   server: {
-    host: '0.0.0.0',
+    host: true,
     port: 5173,
-    strictPort: true,
     hmr: {
-      clientPort: 443,
-      protocol: 'wss',
-      path: '/_hmr',
-      timeout: 120000,
-      overlay: true
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
+      clientPort: 5173,
+      timeout: 120000
     },
     proxy: {
       '/api': {
-        target: 'http://0.0.0.0:3000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
         ws: true
@@ -58,5 +57,8 @@ export default defineConfig({
       usePolling: true,
       interval: 1000
     }
+  },
+  optimizeDeps: {
+    exclude: ['ws']
   }
 });
