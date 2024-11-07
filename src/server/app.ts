@@ -52,16 +52,18 @@ const corsOptions = {
     
     const allowedOrigins = [
       // Development
-      'http://localhost:5173',        // Frontend dev
-      'http://localhost:3001',        // API dev
-      'http://0.0.0.0:5173',         // Network frontend dev
-      'http://0.0.0.0:3001',         // Network API dev
+      'http://localhost:5173',        // Frontend dev internal
+      'http://localhost:5000',        // Frontend dev external
+      'http://localhost:3001',        // API dev internal
+      'http://0.0.0.0:5173',         // Network frontend dev internal
+      'http://0.0.0.0:5000',         // Network frontend dev external
+      'http://0.0.0.0:3001',         // Network API dev internal
       
       // Production
-      'http://localhost:3000',        // Frontend prod
-      'http://localhost:80',          // API prod
-      'http://0.0.0.0:3000',         // Network frontend prod
-      'http://0.0.0.0:80',           // Network API prod
+      'http://localhost:3000',        // Frontend prod internal
+      'http://localhost:80',          // API prod external
+      'http://0.0.0.0:3000',         // Network frontend prod internal
+      'http://0.0.0.0:80',           // Network API prod external
       
       // Replit domain
       'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co'

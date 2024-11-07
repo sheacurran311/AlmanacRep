@@ -6,8 +6,8 @@ const startServer = async () => {
   try {
     console.log(`[${new Date().toISOString()}] [SERVER] Starting server initialization...`);
     
-    // Get internal and external ports
-    const internalPort = parseInt(process.env.INTERNAL_PORT || '3001');
+    // Get internal and external ports from environment variables
+    const internalPort = parseInt(process.env.INTERNAL_PORT || '3000');
     const externalPort = parseInt(process.env.PORT || '80');
     
     // Log PostgreSQL connection details (without sensitive info)
