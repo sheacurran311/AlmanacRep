@@ -30,19 +30,22 @@ declare global {
 // Get host information with enhanced error handling and retry logic
 const getHostInfo = () => {
   const defaultConfig = {
-    wsProtocol: 'ws',
+    wsProtocol: window.location.protocol === 'https:' ? 'wss' : 'ws',
     wsHost: '0.0.0.0',
-    wsPort: '5173',
+    wsPort: '443',
     apiUrl: 'http://localhost:3001/api',
     hmrTimeout: '120000',
-    hmrMaxRetries: '50',
+    hmrMaxRetries: '100',
     hmrReconnectDelayMin: '1000',
     hmrReconnectDelayMax: '30000'
   };
 
   try {
     if (import.meta.env.DEV) {
-      return defaultConfig;
+      return {
+        ...defaultConfig,
+        wsPort: '5173'  // Use development port in dev mode
+      };
     }
 
     // In production, determine the correct host and protocol
@@ -54,10 +57,10 @@ const getHostInfo = () => {
     return {
       wsProtocol: window.location.protocol === 'https:' ? 'wss' : 'ws',
       wsHost: host,
-      wsPort: window.location.port || '80',
+      wsPort: '443',
       apiUrl: '/api',
       hmrTimeout: '300000',
-      hmrMaxRetries: '50',
+      hmrMaxRetries: '100',
       hmrReconnectDelayMin: '2000',
       hmrReconnectDelayMax: '60000'
     };
@@ -93,7 +96,7 @@ if (!window.process) {
         VITE_API_URL: apiUrl,
         VITE_WS_HOST: wsHost,
         VITE_WS_PORT: wsPort,
-        VITE_EXTERNAL_PORT: import.meta.env.DEV ? '5000' : '80',
+        VITE_EXTERNAL_PORT: import.meta.env.DEV ? '5000' : '443',
         VITE_REPL_SLUG: import.meta.env.VITE_REPL_SLUG,
         VITE_REPL_OWNER: import.meta.env.VITE_REPL_OWNER,
         VITE_HMR_TIMEOUT: hmrTimeout,
@@ -129,7 +132,7 @@ if (!window.process) {
         VITE_API_URL: defaultConfig.apiUrl,
         VITE_WS_HOST: defaultConfig.wsHost,
         VITE_WS_PORT: defaultConfig.wsPort,
-        VITE_EXTERNAL_PORT: '5000',
+        VITE_EXTERNAL_PORT: '443',
         VITE_HMR_TIMEOUT: defaultConfig.hmrTimeout,
         VITE_HMR_MAX_RETRIES: defaultConfig.hmrMaxRetries,
         VITE_HMR_RECONNECT_DELAY_MIN: defaultConfig.hmrReconnectDelayMin,
@@ -154,7 +157,7 @@ const env = {
   REPL_SLUG: window.process.env.VITE_REPL_SLUG,
   REPL_OWNER: window.process.env.VITE_REPL_OWNER,
   HMR_TIMEOUT: parseInt(window.process.env.VITE_HMR_TIMEOUT || '120000'),
-  HMR_MAX_RETRIES: parseInt(window.process.env.VITE_HMR_MAX_RETRIES || '50'),
+  HMR_MAX_RETRIES: parseInt(window.process.env.VITE_HMR_MAX_RETRIES || '100'),
   HMR_RECONNECT_DELAY_MIN: parseInt(window.process.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000'),
   HMR_RECONNECT_DELAY_MAX: parseInt(window.process.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000')
 } as const;
@@ -164,23 +167,28 @@ export const isDevelopment = env.DEV;
 export const isProduction = env.PROD;
 export const baseUrl = env.BASE_URL;
 
-// WebSocket URL helper with enhanced error handling
+// WebSocket URL helper with enhanced error handling and secure protocol
 export const getWebSocketUrl = () => {
   try {
-    const protocol = env.WS_PROTOCOL;
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const host = env.WS_HOST;
-    const port = env.WS_PORT;
+    const port = env.DEV ? env.WS_PORT : '443';
     const wsUrl = `${protocol}://${host}:${port}`;
+    
     console.debug('[WebSocket] Generated URL:', wsUrl, {
       protocol,
       host,
       port,
-      env: env.NODE_ENV
+      env: env.NODE_ENV,
+      isSecure: protocol === 'wss'
     });
+    
     return wsUrl;
   } catch (error) {
     console.error('[WebSocket] Error generating URL:', error);
-    const fallbackUrl = isDevelopment ? 'ws://localhost:5173' : 'ws://0.0.0.0:5173';
+    const fallbackUrl = isDevelopment 
+      ? 'ws://localhost:5173' 
+      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
     console.debug('[WebSocket] Using fallback URL:', fallbackUrl);
     return fallbackUrl;
   }

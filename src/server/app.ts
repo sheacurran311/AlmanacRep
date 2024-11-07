@@ -39,7 +39,7 @@ app.use(helmet({
         "wss:",
         "http:",
         "https:",
-        process.env.NODE_ENV === 'development' ? [
+        ...(process.env.NODE_ENV === 'development' ? [
           'ws://localhost:*',
           'wss://localhost:*',
           'http://localhost:*',
@@ -48,8 +48,8 @@ app.use(helmet({
           'wss://0.0.0.0:*',
           'http://0.0.0.0:*',
           'https://0.0.0.0:*'
-        ] : []
-      ].flat(),
+        ] : [])
+      ],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https:"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
@@ -91,6 +91,7 @@ const corsOptions = {
     if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
       const replitDomain = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
       allowedOrigins.push(replitDomain);
+      allowedOrigins.push(replitDomain.replace('https:', 'wss:'));
     }
 
     const isAllowed = allowedOrigins.some(allowedOrigin => 
@@ -129,72 +130,121 @@ const wss = new WebSocketServer({
   }
 });
 
-// Implement WebSocket heartbeat mechanism
+// Implement WebSocket heartbeat mechanism with enhanced error handling
 const heartbeatInterval = 30000;
 const connectionTimeout = 120000;
 
-setInterval(() => {
+const heartbeat = setInterval(() => {
   wss.clients.forEach((ws: any) => {
     if (ws.isAlive === false) {
       console.log('[WebSocket] Terminating inactive connection');
       return ws.terminate();
     }
     ws.isAlive = false;
-    ws.ping();
+    try {
+      ws.ping();
+    } catch (error) {
+      console.error('[WebSocket] Ping error:', error);
+      ws.terminate();
+    }
   });
 }, heartbeatInterval);
 
+wss.on('close', () => {
+  clearInterval(heartbeat);
+});
+
 // WebSocket connection handler with enhanced error recovery
-wss.on('connection', (ws: any, _req: any) => {
-  console.log(`[${new Date().toISOString()}] [WebSocket] New client connected`);
+wss.on('connection', (ws: any, req: any) => {
+  console.log(`[${new Date().toISOString()}] [WebSocket] New client connected from ${req.socket.remoteAddress}`);
   
   ws.isAlive = true;
   ws.connectionTime = Date.now();
+  ws.pingCount = 0;
+  ws.maxPingRetries = 3;
 
   // Set connection timeout
   ws.connectionTimeout = setTimeout(() => {
     if (ws.readyState === ws.OPEN) {
       console.log('[WebSocket] Connection timeout, closing...');
-      ws.close();
+      ws.close(1000, 'Connection timeout');
     }
   }, connectionTimeout);
 
+  // Enhanced ping/pong handling
   ws.on('pong', () => {
     ws.isAlive = true;
+    ws.pingCount = 0;
+  });
+
+  ws.on('ping', () => {
+    try {
+      ws.pong();
+    } catch (error) {
+      console.error('[WebSocket] Pong error:', error);
+    }
   });
 
   ws.on('error', (err: Error) => {
     console.error(`[${new Date().toISOString()}] [WebSocket] Client error:`, err);
+    ws.terminate();
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code: number, reason: string) => {
     clearTimeout(ws.connectionTimeout);
-    console.log(`[${new Date().toISOString()}] [WebSocket] Client disconnected`);
+    console.log(`[${new Date().toISOString()}] [WebSocket] Client disconnected:`, {
+      code,
+      reason: reason.toString(),
+      duration: Date.now() - ws.connectionTime
+    });
   });
 
-  // Send initial connection success message
-  ws.send(JSON.stringify({
-    type: 'connection',
-    status: 'connected',
-    timestamp: new Date().toISOString()
-  }));
+  // Send initial connection success message with session info
+  try {
+    ws.send(JSON.stringify({
+      type: 'connection',
+      status: 'connected',
+      timestamp: new Date().toISOString(),
+      config: {
+        heartbeatInterval,
+        connectionTimeout
+      }
+    }));
+  } catch (error) {
+    console.error('[WebSocket] Error sending welcome message:', error);
+  }
 });
 
-// WebSocket upgrade handling with enhanced CORS support
+// Enhanced WebSocket upgrade handling with better error handling
 server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
+  
   if (origin && corsOptions.origin) {
     corsOptions.origin(origin, (err, allowed) => {
       if (err || !allowed) {
+        console.error('[WebSocket] Unauthorized upgrade attempt:', {
+          origin,
+          remoteAddress: socket.remoteAddress,
+          timestamp: new Date().toISOString()
+        });
         socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
         socket.destroy();
         return;
       }
       
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
+      try {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit('connection', ws, request);
+        });
+      } catch (error) {
+        console.error('[WebSocket] Upgrade error:', error);
+        socket.write('HTTP/1.1 500 Internal Server Error\r\n\r\n');
+        socket.destroy();
+      }
     });
+  } else {
+    socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+    socket.destroy();
   }
 });
 
@@ -213,7 +263,10 @@ app.get('/health', (_req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     websocketClients: wss.clients.size,
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    serverPort: process.env.INTERNAL_PORT || '3001',
+    externalPort: process.env.PORT || '80'
   });
 });
 
