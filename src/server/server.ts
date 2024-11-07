@@ -6,8 +6,9 @@ const startServer = async () => {
   try {
     console.log(`[${new Date().toISOString()}] [SERVER] Starting server initialization...`);
     
-    // Get port from environment or use default
-    const port = parseInt(process.env.PORT || '3000');
+    // Get internal and external ports
+    const internalPort = parseInt(process.env.INTERNAL_PORT || '3001');
+    const externalPort = parseInt(process.env.PORT || '80');
     
     // Log PostgreSQL connection details (without sensitive info)
     console.log(`[${new Date().toISOString()}] [DATABASE] Connecting to PostgreSQL:
@@ -36,18 +37,19 @@ const startServer = async () => {
     }
 
     // Start server with proper binding
-    const serverInstance = server.listen(port, '0.0.0.0', () => {
-      console.log(`[${new Date().toISOString()}] [SERVER] Server is running on port ${port}`);
+    const serverInstance = server.listen(internalPort, '0.0.0.0', () => {
+      console.log(`[${new Date().toISOString()}] [SERVER] Server is running on port ${internalPort}`);
       console.log(`[${new Date().toISOString()}] [SERVER] Access URLs:`);
-      console.log(`- Local: http://localhost:${port}`);
-      console.log(`- Network: http://0.0.0.0:${port}`);
+      console.log(`- Local: http://localhost:${internalPort}`);
+      console.log(`- Network: http://0.0.0.0:${internalPort}`);
+      console.log(`- External: http://0.0.0.0:${externalPort}`);
       console.log(`[${new Date().toISOString()}] [SERVER] Using database on port ${process.env.PGPORT}`);
     });
 
     // Add proper error handling
     serverInstance.on('error', (error: NodeJS.ErrnoException) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`[${new Date().toISOString()}] [SERVER] Port ${port} is already in use`);
+        console.error(`[${new Date().toISOString()}] [SERVER] Port ${internalPort} is already in use`);
         process.exit(1);
       } else {
         console.error(`[${new Date().toISOString()}] [SERVER] Server error:`, error);

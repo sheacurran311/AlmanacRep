@@ -43,24 +43,38 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration
+// CORS configuration with updated ports
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
+    
     const allowedOrigins = [
-      'http://localhost:5173',
-      'http://0.0.0.0:5173',
-      'http://localhost:3000',
-      'http://0.0.0.0:3000',
+      // Development
+      'http://localhost:5173',        // Frontend dev
+      'http://localhost:3001',        // API dev
+      'http://0.0.0.0:5173',         // Network frontend dev
+      'http://0.0.0.0:3001',         // Network API dev
+      
+      // Production
+      'http://localhost:3000',        // Frontend prod
+      'http://localhost:80',          // API prod
+      'http://0.0.0.0:3000',         // Network frontend prod
+      'http://0.0.0.0:80',           // Network API prod
+      
+      // Replit domain
       'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co'
     ];
+
+    // Add Replit domain dynamically if available
     if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-      allowedOrigins.push(`https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+      const replitDomain = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      allowedOrigins.push(replitDomain);
     }
-    callback(null, allowedOrigins.includes(origin));
+
+    const isAllowed = allowedOrigins.includes(origin);
+    callback(null, isAllowed);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

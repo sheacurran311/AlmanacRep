@@ -35,8 +35,8 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development tsx watch src/server/server.ts"
-waitForPort = 3000
+args = "NODE_ENV=development PORT=80 INTERNAL_PORT=3001 tsx watch src/server/server.ts"
+waitForPort = 3001
 
 [[workflows.workflow]]
 name = "Frontend"
@@ -50,7 +50,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development vite --config vite.config.ts"
+args = "NODE_ENV=development PORT=3000 INTERNAL_PORT=5173 vite --config vite.config.ts"
 waitForPort = 5173
 
 [[workflows.workflow]]
@@ -69,7 +69,7 @@ args = "npm run build:client && npm run dev:server"
 waitForPort = 3000
 
 [deployment]
-run = ["sh", "-c", "NODE_ENV=development tsx watch src/server/server.ts"]
+run = ["sh", "-c", "NODE_ENV=development PORT=80 INTERNAL_PORT=3001 tsx watch src/server/server.ts"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
