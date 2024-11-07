@@ -8,12 +8,26 @@ const poolConfig: PoolConfig = {
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   ssl: {
-    rejectUnauthorized: false,
-    sslmode: 'require'
-  }
+    rejectUnauthorized: false
+  },
+  // Enhanced connection handling
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000
 };
 
 const pool = new Pool(poolConfig);
+
+// Add connection error handling
+pool.on('error', (err) => {
+  console.error('[DATABASE] Unexpected error on idle client', err);
+});
+
+pool.on('connect', () => {
+  console.log('[DATABASE] New client connected to pool');
+});
 
 export class DatabaseManager extends BaseDatabaseManager {
   static async transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {

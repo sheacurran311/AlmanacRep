@@ -1,16 +1,6 @@
-import pkg from 'pg';
-const { Pool } = pkg;
-import type { PoolConfig, QueryResult, QueryResultRow } from 'pg';
-
-interface DatabaseError extends Error {
-  code?: string;
-  detail?: string;
-  schema?: string;
-  table?: string;
-  column?: string;
-  dataType?: string;
-  constraint?: string;
-}
+import pg from 'pg';
+const { Pool } = pg;
+import type { PoolConfig, PoolClient, QueryResult } from 'pg';
 
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
@@ -19,28 +9,29 @@ const poolConfig: PoolConfig = {
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   ssl: {
-    rejectUnauthorized: false,
-    mode: 'require'
+    rejectUnauthorized: false
   },
-  // Add connection pool settings
+  // Enhanced connection handling
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000
 };
 
 const pool = new Pool(poolConfig);
 
 // Add connection error handling
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('[DATABASE] Unexpected error on idle client', err);
+});
+
+pool.on('connect', () => {
+  console.log('[DATABASE] New client connected to pool');
 });
 
 export class DatabaseManager {
-  static async query<T extends QueryResultRow = any>(
-    text: string,
-    params?: any[]
-  ): Promise<QueryResult<T>> {
+  static async query<T = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
     const client = await pool.connect();
     try {
       const startTime = Date.now();
@@ -52,18 +43,42 @@ export class DatabaseManager {
       }
       
       return result;
-    } catch (error) {
-      const dbError = error as DatabaseError;
+    } catch (error: any) {
       console.error('[DATABASE] Query error:', {
-        message: dbError.message,
-        code: dbError.code,
-        detail: dbError.detail,
-        schema: dbError.schema,
+        message: error.message,
+        code: error.code,
+        detail: error.detail,
+        schema: error.schema,
         timestamp: new Date().toISOString()
       });
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  static async transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async testConnection(): Promise<boolean> {
+    try {
+      const result = await this.query('SELECT NOW()');
+      return result.rowCount === 1;
+    } catch (error) {
+      console.error('[DATABASE] Connection test failed:', error);
+      return false;
     }
   }
 }

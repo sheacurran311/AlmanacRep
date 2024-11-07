@@ -14,6 +14,7 @@ import analyticsRoutes from './routes/analytics.js';
 import campaignRoutes from './routes/campaigns.js';
 import customerRoutes from './routes/customers.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { WebSocketServer } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,64 +28,175 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Security headers with proper CSP
+// Enhanced security headers with WebSocket support
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      connectSrc: ["'self'", 'ws:', 'wss:', 'http:', 'https:'],
       defaultSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        "ws:",
+        "wss:",
+        "http:",
+        "https:",
+        process.env.NODE_ENV === 'development' ? [
+          'ws://localhost:*',
+          'wss://localhost:*',
+          'http://localhost:*',
+          'https://localhost:*',
+          'ws://0.0.0.0:*',
+          'wss://0.0.0.0:*',
+          'http://0.0.0.0:*',
+          'https://0.0.0.0:*'
+        ] : []
+      ].flat(),
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
-      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
-      fontSrc: ["'self'", 'data:', 'https:']
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "data:", "https:"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
     }
   },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration with updated ports
+// Enhanced CORS configuration with WebSocket support
 const corsOptions = {
   origin: function(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    if (!origin) {
-      return callback(null, true);
-    }
+    if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      // Development
-      'http://localhost:5173',        // Frontend dev internal
-      'http://localhost:5000',        // Frontend dev external
-      'http://localhost:3001',        // API dev internal
-      'http://0.0.0.0:5173',         // Network frontend dev internal
-      'http://0.0.0.0:5000',         // Network frontend dev external
-      'http://0.0.0.0:3001',         // Network API dev internal
-      
-      // Production
-      'http://localhost:3000',        // Frontend prod internal
-      'http://localhost:80',          // API prod external
-      'http://0.0.0.0:3000',         // Network frontend prod internal
-      'http://0.0.0.0:80',           // Network API prod external
-      
-      // Replit domain
-      'https://loyaltyconnector.d9a1d7f4-943d-45ec-9d64-a8de7e509652.repl.co'
+      'http://localhost:5173',
+      'https://localhost:5173',
+      'http://localhost:5000',
+      'https://localhost:5000',
+      'http://localhost:3001',
+      'https://localhost:3001',
+      'http://0.0.0.0:5173',
+      'https://0.0.0.0:5173',
+      'http://0.0.0.0:5000',
+      'https://0.0.0.0:5000',
+      'http://0.0.0.0:3001',
+      'https://0.0.0.0:3001',
+      'ws://localhost:5173',
+      'wss://localhost:5173',
+      'ws://0.0.0.0:5173',
+      'wss://0.0.0.0:5173'
     ];
 
-    // Add Replit domain dynamically if available
     if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
       const replitDomain = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
       allowedOrigins.push(replitDomain);
     }
 
-    const isAllowed = allowedOrigins.includes(origin);
+    const isAllowed = allowedOrigins.some(allowedOrigin => 
+      origin.startsWith(allowedOrigin) || allowedOrigin.startsWith(origin)
+    );
+    
     callback(null, isAllowed);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-tenant-id'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
+
+// Create WebSocket server with enhanced error handling and reconnection
+const wss = new WebSocketServer({ 
+  server,
+  clientTracking: true,
+  perMessageDeflate: {
+    zlibDeflateOptions: {
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3
+    },
+    zlibInflateOptions: {
+      chunkSize: 10 * 1024
+    },
+    clientNoContextTakeover: true,
+    serverNoContextTakeover: true,
+    serverMaxWindowBits: 10,
+    concurrencyLimit: 10,
+    threshold: 1024
+  }
+});
+
+// Implement WebSocket heartbeat mechanism
+const heartbeatInterval = 30000;
+const connectionTimeout = 120000;
+
+setInterval(() => {
+  wss.clients.forEach((ws: any) => {
+    if (ws.isAlive === false) {
+      console.log('[WebSocket] Terminating inactive connection');
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, heartbeatInterval);
+
+// WebSocket connection handler with enhanced error recovery
+wss.on('connection', (ws: any, _req: any) => {
+  console.log(`[${new Date().toISOString()}] [WebSocket] New client connected`);
+  
+  ws.isAlive = true;
+  ws.connectionTime = Date.now();
+
+  // Set connection timeout
+  ws.connectionTimeout = setTimeout(() => {
+    if (ws.readyState === ws.OPEN) {
+      console.log('[WebSocket] Connection timeout, closing...');
+      ws.close();
+    }
+  }, connectionTimeout);
+
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
+
+  ws.on('error', (err: Error) => {
+    console.error(`[${new Date().toISOString()}] [WebSocket] Client error:`, err);
+  });
+
+  ws.on('close', () => {
+    clearTimeout(ws.connectionTimeout);
+    console.log(`[${new Date().toISOString()}] [WebSocket] Client disconnected`);
+  });
+
+  // Send initial connection success message
+  ws.send(JSON.stringify({
+    type: 'connection',
+    status: 'connected',
+    timestamp: new Date().toISOString()
+  }));
+});
+
+// WebSocket upgrade handling with enhanced CORS support
+server.on('upgrade', (request, socket, head) => {
+  const origin = request.headers.origin;
+  if (origin && corsOptions.origin) {
+    corsOptions.origin(origin, (err, allowed) => {
+      if (err || !allowed) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    });
+  }
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -95,13 +207,22 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/customers', customerRoutes);
 
-// Serve static files for development
+// Enhanced health check endpoint
+app.get('/health', (_req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    websocketClients: wss.clients.size,
+    uptime: process.uptime()
+  });
+});
+
+// Static files and routing handler
 if (process.env.NODE_ENV === 'development') {
   app.get('*', (_req, res) => {
-    res.redirect('http://localhost:5173');
+    res.redirect(`http://localhost:${process.env.VITE_DEV_PORT || 5173}`);
   });
 } else {
-  // Serve static files in production
   app.use(express.static(path.join(__dirname, '../../dist/client')));
   app.get('*', (_req, res) => {
     res.sendFile(path.join(__dirname, '../../dist/client/index.html'));
