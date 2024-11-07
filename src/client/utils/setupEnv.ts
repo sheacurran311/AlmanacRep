@@ -1,4 +1,5 @@
-// Environment setup and polyfills
+import { Client } from '@replit/object-storage';
+
 interface ProcessEnv {
   NODE_ENV: string;
   DEV: string;
@@ -27,13 +28,23 @@ declare global {
   }
 }
 
-// Get host information with enhanced error handling and retry logic
+const getReplitDomain = () => {
+  const replSlug = import.meta.env.VITE_REPL_SLUG;
+  const replOwner = import.meta.env.VITE_REPL_OWNER;
+  
+  if (replSlug && replOwner) {
+    console.debug('[Environment] Using Replit domain:', `${replSlug}.${replOwner}.repl.co`);
+    return `${replSlug}.${replOwner}.repl.co`;
+  }
+  return null;
+};
+
 const getHostInfo = () => {
   const defaultConfig = {
-    wsProtocol: window.location.protocol === 'https:' ? 'wss' : 'ws',
+    wsProtocol: 'ws',
     wsHost: '0.0.0.0',
-    wsPort: '443',
-    apiUrl: 'http://localhost:3001/api',
+    wsPort: '5173',
+    apiUrl: 'http://0.0.0.0:3001/api',
     hmrTimeout: '120000',
     hmrMaxRetries: '100',
     hmrReconnectDelayMin: '1000',
@@ -41,109 +52,83 @@ const getHostInfo = () => {
   };
 
   try {
-    if (import.meta.env.DEV) {
-      return {
+    const isDev = import.meta.env.DEV;
+    const isHttps = window.location.protocol === 'https:';
+    const replitDomain = getReplitDomain();
+    const hostname = window.location.hostname;
+
+    // Development configuration
+    if (isDev) {
+      const port = isHttps ? '5000' : '5173';
+      const protocol = isHttps ? 'wss' : 'ws';
+      const host = hostname || '0.0.0.0';
+      
+      const devConfig = {
         ...defaultConfig,
-        wsPort: '5173'  // Use development port in dev mode
+        wsProtocol: protocol,
+        wsHost: host,
+        wsPort: port,
+        apiUrl: `http://${host}:3001/api`
       };
+      console.debug('[Environment] Development config:', devConfig);
+      return devConfig;
     }
 
-    // In production, determine the correct host and protocol
-    const isReplit = import.meta.env.VITE_REPL_SLUG && import.meta.env.VITE_REPL_OWNER;
-    const host = isReplit 
-      ? `${import.meta.env.VITE_REPL_SLUG}.${import.meta.env.VITE_REPL_OWNER}.repl.co`
-      : window.location.hostname;
-    
-    return {
-      wsProtocol: window.location.protocol === 'https:' ? 'wss' : 'ws',
-      wsHost: host,
-      wsPort: '443',
-      apiUrl: '/api',
-      hmrTimeout: '300000',
-      hmrMaxRetries: '100',
-      hmrReconnectDelayMin: '2000',
-      hmrReconnectDelayMax: '60000'
+    // Replit production configuration
+    if (replitDomain) {
+      const prodConfig = {
+        ...defaultConfig,
+        wsProtocol: 'wss',
+        wsHost: replitDomain,
+        wsPort: '443',
+        apiUrl: `https://${replitDomain}/api`
+      };
+      console.debug('[Environment] Replit production config:', prodConfig);
+      return prodConfig;
+    }
+
+    // Fallback configuration
+    const fallbackConfig = {
+      ...defaultConfig,
+      wsProtocol: isHttps ? 'wss' : 'ws',
+      wsHost: hostname || '0.0.0.0',
+      wsPort: isHttps ? '443' : '5173',
+      apiUrl: '/api'
     };
+    console.debug('[Environment] Fallback config:', fallbackConfig);
+    return fallbackConfig;
   } catch (error) {
-    console.error('[Environment] Error getting host info:', error);
+    console.error('[Environment] Error in getHostInfo:', error);
     return defaultConfig;
   }
 };
 
-// Initialize process with proper environment variables
 if (!window.process) {
-  try {
-    const { 
-      wsProtocol, 
-      wsHost, 
-      wsPort, 
-      apiUrl, 
-      hmrTimeout, 
-      hmrMaxRetries,
-      hmrReconnectDelayMin,
-      hmrReconnectDelayMax 
-    } = getHostInfo();
-
-    window.process = {
-      env: {
-        NODE_ENV: String(import.meta.env.MODE || 'development'),
-        DEV: String(import.meta.env.DEV || false),
-        PROD: String(import.meta.env.PROD || false),
-        SSR: String(import.meta.env.SSR || false),
-        BASE_URL: String(import.meta.env.BASE_URL || '/'),
-        MODE: String(import.meta.env.MODE || 'development'),
-        VITE_WS_PROTOCOL: wsProtocol,
-        VITE_API_URL: apiUrl,
-        VITE_WS_HOST: wsHost,
-        VITE_WS_PORT: wsPort,
-        VITE_EXTERNAL_PORT: import.meta.env.DEV ? '5000' : '443',
-        VITE_REPL_SLUG: import.meta.env.VITE_REPL_SLUG,
-        VITE_REPL_OWNER: import.meta.env.VITE_REPL_OWNER,
-        VITE_HMR_TIMEOUT: hmrTimeout,
-        VITE_HMR_MAX_RETRIES: hmrMaxRetries,
-        VITE_HMR_RECONNECT_DELAY_MIN: hmrReconnectDelayMin,
-        VITE_HMR_RECONNECT_DELAY_MAX: hmrReconnectDelayMax
-      }
-    };
-
-    console.debug('[Environment] Configuration:', {
-      mode: window.process.env.NODE_ENV,
-      wsProtocol,
-      wsHost,
-      wsPort,
-      apiUrl,
-      hmrTimeout,
-      hmrMaxRetries,
-      hmrReconnectDelayMin,
-      hmrReconnectDelayMax
-    });
-  } catch (error) {
-    console.error('[Environment] Error initializing process:', error);
-    const defaultConfig = getHostInfo();
-    window.process = {
-      env: {
-        NODE_ENV: 'development',
-        DEV: 'true',
-        PROD: 'false',
-        SSR: 'false',
-        BASE_URL: '/',
-        MODE: 'development',
-        VITE_WS_PROTOCOL: defaultConfig.wsProtocol,
-        VITE_API_URL: defaultConfig.apiUrl,
-        VITE_WS_HOST: defaultConfig.wsHost,
-        VITE_WS_PORT: defaultConfig.wsPort,
-        VITE_EXTERNAL_PORT: '443',
-        VITE_HMR_TIMEOUT: defaultConfig.hmrTimeout,
-        VITE_HMR_MAX_RETRIES: defaultConfig.hmrMaxRetries,
-        VITE_HMR_RECONNECT_DELAY_MIN: defaultConfig.hmrReconnectDelayMin,
-        VITE_HMR_RECONNECT_DELAY_MAX: defaultConfig.hmrReconnectDelayMax
-      }
-    };
-  }
+  const config = getHostInfo();
+  window.process = {
+    env: {
+      NODE_ENV: import.meta.env.MODE || 'development',
+      DEV: String(import.meta.env.DEV || false),
+      PROD: String(import.meta.env.PROD || false),
+      SSR: String(import.meta.env.SSR || false),
+      BASE_URL: import.meta.env.BASE_URL || '/',
+      MODE: import.meta.env.MODE || 'development',
+      VITE_WS_PROTOCOL: config.wsProtocol,
+      VITE_API_URL: config.apiUrl,
+      VITE_WS_HOST: config.wsHost,
+      VITE_WS_PORT: config.wsPort,
+      VITE_EXTERNAL_PORT: import.meta.env.DEV ? '5000' : '443',
+      VITE_REPL_SLUG: import.meta.env.VITE_REPL_SLUG,
+      VITE_REPL_OWNER: import.meta.env.VITE_REPL_OWNER,
+      VITE_HMR_TIMEOUT: config.hmrTimeout,
+      VITE_HMR_MAX_RETRIES: config.hmrMaxRetries,
+      VITE_HMR_RECONNECT_DELAY_MIN: config.hmrReconnectDelayMin,
+      VITE_HMR_RECONNECT_DELAY_MAX: config.hmrReconnectDelayMax
+    }
+  };
 }
 
-// Environment configuration
-const env = {
+export const env = {
   NODE_ENV: window.process.env.NODE_ENV,
   DEV: window.process.env.DEV === 'true',
   PROD: window.process.env.PROD === 'true',
@@ -162,48 +147,55 @@ const env = {
   HMR_RECONNECT_DELAY_MAX: parseInt(window.process.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000')
 } as const;
 
-// Environment helpers
 export const isDevelopment = env.DEV;
 export const isProduction = env.PROD;
-export const baseUrl = env.BASE_URL;
 
-// WebSocket URL helper with enhanced error handling and secure protocol
 export const getWebSocketUrl = () => {
   try {
+    if (isDevelopment) {
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const host = env.WS_HOST;
+      const port = window.location.protocol === 'https:' ? '5000' : '5173';
+      const wsUrl = `${protocol}://${host}:${port}`;
+      console.debug('[WebSocket] Development URL:', wsUrl);
+      return wsUrl;
+    }
+
+    if (env.REPL_SLUG && env.REPL_OWNER) {
+      const wsUrl = `wss://${env.REPL_SLUG}.${env.REPL_OWNER}.repl.co`;
+      console.debug('[WebSocket] Production URL:', wsUrl);
+      return wsUrl;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const host = env.WS_HOST;
-    const port = env.DEV ? env.WS_PORT : '443';
+    const port = env.WS_PORT;
     const wsUrl = `${protocol}://${host}:${port}`;
-    
-    console.debug('[WebSocket] Generated URL:', wsUrl, {
-      protocol,
-      host,
-      port,
-      env: env.NODE_ENV,
-      isSecure: protocol === 'wss'
-    });
-    
+    console.debug('[WebSocket] Fallback URL:', wsUrl);
     return wsUrl;
   } catch (error) {
     console.error('[WebSocket] Error generating URL:', error);
-    const fallbackUrl = isDevelopment 
-      ? 'ws://localhost:5173' 
-      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
-    console.debug('[WebSocket] Using fallback URL:', fallbackUrl);
-    return fallbackUrl;
+    return 'ws://0.0.0.0:5173';
   }
 };
 
-// API URL helper with error handling
 export const getApiUrl = () => {
   try {
+    if (isDevelopment) {
+      const host = window.location.protocol === 'https:' ? 
+        `${window.location.hostname}:3001` : 
+        '0.0.0.0:3001';
+      const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
+      const apiUrl = `${protocol}://${host}/api`;
+      console.debug('[API] Development URL:', apiUrl);
+      return apiUrl;
+    }
+
     console.debug('[API] Using URL:', env.API_URL);
     return env.API_URL;
   } catch (error) {
     console.error('[API] Error getting API URL:', error);
-    const fallbackUrl = '/api';
-    console.debug('[API] Using fallback URL:', fallbackUrl);
-    return fallbackUrl;
+    return '/api';
   }
 };
 
