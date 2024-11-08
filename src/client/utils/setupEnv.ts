@@ -36,15 +36,15 @@ const getReplitDomain = () => {
     console.debug('[Environment] Using Replit domain:', `${replSlug}.${replOwner}.repl.co`);
     return `${replSlug}.${replOwner}.repl.co`;
   }
-  return null;
+  return 'localhost';
 };
 
 const getHostInfo = () => {
   const defaultConfig = {
     wsProtocol: 'ws',
-    wsHost: '0.0.0.0',
+    wsHost: 'localhost',
     wsPort: '5173',
-    apiUrl: 'http://0.0.0.0:3001/api',
+    apiUrl: 'http://localhost:3001/api',
     hmrTimeout: '120000',
     hmrMaxRetries: '100',
     hmrReconnectDelayMin: '1000',
@@ -55,48 +55,32 @@ const getHostInfo = () => {
     const isDev = import.meta.env.DEV;
     const isHttps = window.location.protocol === 'https:';
     const replitDomain = getReplitDomain();
-    const hostname = window.location.hostname;
 
     // Development configuration
     if (isDev) {
-      const port = isHttps ? '5000' : '5173';
-      const protocol = isHttps ? 'wss' : 'ws';
-      const host = hostname || '0.0.0.0';
-      
       const devConfig = {
         ...defaultConfig,
-        wsProtocol: protocol,
-        wsHost: host,
-        wsPort: port,
-        apiUrl: `http://${host}:3001/api`
+        wsProtocol: isHttps ? 'wss' : 'ws',
+        wsHost: replitDomain === 'localhost' ? '0.0.0.0' : replitDomain,
+        wsPort: isHttps ? '5000' : '5173',
+        apiUrl: replitDomain === 'localhost' ? 
+          `http://0.0.0.0:3001/api` : 
+          `https://${replitDomain}/api`
       };
       console.debug('[Environment] Development config:', devConfig);
       return devConfig;
     }
 
-    // Replit production configuration
-    if (replitDomain) {
-      const prodConfig = {
-        ...defaultConfig,
-        wsProtocol: 'wss',
-        wsHost: replitDomain,
-        wsPort: '443',
-        apiUrl: `https://${replitDomain}/api`
-      };
-      console.debug('[Environment] Replit production config:', prodConfig);
-      return prodConfig;
-    }
-
-    // Fallback configuration
-    const fallbackConfig = {
+    // Production configuration
+    const prodConfig = {
       ...defaultConfig,
-      wsProtocol: isHttps ? 'wss' : 'ws',
-      wsHost: hostname || '0.0.0.0',
-      wsPort: isHttps ? '443' : '5173',
-      apiUrl: '/api'
+      wsProtocol: 'wss',
+      wsHost: replitDomain,
+      wsPort: '443',
+      apiUrl: `https://${replitDomain}/api`
     };
-    console.debug('[Environment] Fallback config:', fallbackConfig);
-    return fallbackConfig;
+    console.debug('[Environment] Production config:', prodConfig);
+    return prodConfig;
   } catch (error) {
     console.error('[Environment] Error in getHostInfo:', error);
     return defaultConfig;
@@ -151,52 +135,39 @@ export const isDevelopment = env.DEV;
 export const isProduction = env.PROD;
 
 export const getWebSocketUrl = () => {
-  try {
-    if (isDevelopment) {
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = env.WS_HOST;
-      const port = window.location.protocol === 'https:' ? '5000' : '5173';
-      const wsUrl = `${protocol}://${host}:${port}`;
-      console.debug('[WebSocket] Development URL:', wsUrl);
-      return wsUrl;
-    }
-
-    if (env.REPL_SLUG && env.REPL_OWNER) {
-      const wsUrl = `wss://${env.REPL_SLUG}.${env.REPL_OWNER}.repl.co`;
-      console.debug('[WebSocket] Production URL:', wsUrl);
-      return wsUrl;
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = env.WS_HOST;
-    const port = env.WS_PORT;
-    const wsUrl = `${protocol}://${host}:${port}`;
-    console.debug('[WebSocket] Fallback URL:', wsUrl);
+  const replitDomain = getReplitDomain();
+  const isHttps = window.location.protocol === 'https:';
+  
+  // Development configuration
+  if (isDevelopment) {
+    const wsProtocol = isHttps ? 'wss' : 'ws';
+    const wsHost = replitDomain === 'localhost' ? '0.0.0.0' : replitDomain;
+    const wsPort = isHttps ? '5000' : '5173';
+    const wsUrl = `${wsProtocol}://${wsHost}:${wsPort}`;
+    console.debug('[WebSocket] Development URL:', wsUrl);
     return wsUrl;
-  } catch (error) {
-    console.error('[WebSocket] Error generating URL:', error);
-    return 'ws://0.0.0.0:5173';
   }
+
+  // Production configuration
+  const wsUrl = `wss://${replitDomain}`;
+  console.debug('[WebSocket] Production URL:', wsUrl);
+  return wsUrl;
 };
 
 export const getApiUrl = () => {
-  try {
-    if (isDevelopment) {
-      const host = window.location.protocol === 'https:' ? 
-        `${window.location.hostname}:3001` : 
-        '0.0.0.0:3001';
-      const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
-      const apiUrl = `${protocol}://${host}/api`;
-      console.debug('[API] Development URL:', apiUrl);
-      return apiUrl;
-    }
-
-    console.debug('[API] Using URL:', env.API_URL);
-    return env.API_URL;
-  } catch (error) {
-    console.error('[API] Error getting API URL:', error);
-    return '/api';
+  const replitDomain = getReplitDomain();
+  
+  // Development configuration
+  if (isDevelopment && replitDomain === 'localhost') {
+    const apiUrl = 'http://0.0.0.0:3001/api';
+    console.debug('[API] Development URL:', apiUrl);
+    return apiUrl;
   }
+
+  // Replit configuration
+  const apiUrl = `https://${replitDomain}/api`;
+  console.debug('[API] Production URL:', apiUrl);
+  return apiUrl;
 };
 
 export { env };
