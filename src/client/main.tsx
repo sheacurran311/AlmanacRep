@@ -15,9 +15,9 @@ if (import.meta.hot) {
   let isConnected = true;
   let reconnectAttempts = 0;
   let reconnectTimeout: NodeJS.Timeout;
-  const maxReconnectAttempts = env.HMR_MAX_RETRIES;
-  const baseReconnectDelay = env.HMR_RECONNECT_DELAY_MIN;
-  const maxReconnectDelay = env.HMR_RECONNECT_DELAY_MAX;
+  const maxReconnectAttempts = parseInt(import.meta.env.VITE_HMR_MAX_RETRIES || '100');
+  const baseReconnectDelay = parseInt(import.meta.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000');
+  const maxReconnectDelay = parseInt(import.meta.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000');
   const wsUrl = getWebSocketUrl();
 
   const getReconnectDelay = () => {
@@ -68,7 +68,7 @@ if (import.meta.hot) {
             if (!isConnected) {
               attemptReconnect();
             }
-          }, env.HMR_TIMEOUT);
+          }, parseInt(import.meta.env.VITE_HMR_TIMEOUT || '120000'));
         } catch (error) {
           console.error('[HMR] Failed to initiate reconnection:', error);
           attemptReconnect();

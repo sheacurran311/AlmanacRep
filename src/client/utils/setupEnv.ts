@@ -33,18 +33,20 @@ const getReplitDomain = () => {
   const replOwner = import.meta.env.VITE_REPL_OWNER;
   
   if (replSlug && replOwner) {
-    console.debug('[Environment] Using Replit domain:', `${replSlug}.${replOwner}.repl.co`);
     return `${replSlug}.${replOwner}.repl.co`;
   }
-  return 'localhost';
+  return '0.0.0.0';
 };
 
 const getHostInfo = () => {
   const defaultConfig = {
     wsProtocol: 'ws',
-    wsHost: 'localhost',
-    wsPort: '5173',
-    apiUrl: 'http://localhost:3001/api',
+    wsHost: '0.0.0.0',
+    frontendInternalPort: '5173',    // Dev server port
+    frontendExternalPort: '5000',    // External frontend port
+    apiInternalPort: '3001',         // API server internal port
+    apiExternalPort: '80',           // API server external port
+    hmrPort: '443',                  // Default HMR port for production
     hmrTimeout: '120000',
     hmrMaxRetries: '100',
     hmrReconnectDelayMin: '1000',
@@ -56,39 +58,40 @@ const getHostInfo = () => {
     const isHttps = window.location.protocol === 'https:';
     const replitDomain = getReplitDomain();
 
-    // Development configuration
+    // For development environment
     if (isDev) {
-      const devConfig = {
+      return {
         ...defaultConfig,
         wsProtocol: isHttps ? 'wss' : 'ws',
-        wsHost: replitDomain === 'localhost' ? '0.0.0.0' : replitDomain,
-        wsPort: isHttps ? '5000' : '5173',
-        apiUrl: replitDomain === 'localhost' ? 
-          `http://0.0.0.0:3001/api` : 
-          `https://${replitDomain}/api`
+        wsHost: replitDomain,
+        wsPort: defaultConfig.frontendInternalPort,
+        hmrPort: defaultConfig.frontendInternalPort,
+        apiUrl: `http://${replitDomain}:${defaultConfig.apiInternalPort}/api`,
+        externalPort: defaultConfig.frontendExternalPort
       };
-      console.debug('[Environment] Development config:', devConfig);
-      return devConfig;
     }
 
-    // Production configuration
-    const prodConfig = {
+    // For production environment
+    return {
       ...defaultConfig,
       wsProtocol: 'wss',
       wsHost: replitDomain,
       wsPort: '443',
-      apiUrl: `https://${replitDomain}/api`
+      hmrPort: '443',
+      apiUrl: `https://${replitDomain}/api`,
+      externalPort: defaultConfig.apiExternalPort
     };
-    console.debug('[Environment] Production config:', prodConfig);
-    return prodConfig;
   } catch (error) {
     console.error('[Environment] Error in getHostInfo:', error);
     return defaultConfig;
   }
 };
 
+// Initialize configuration
+const config = getHostInfo();
+
+// Set up process.env for browser environment
 if (!window.process) {
-  const config = getHostInfo();
   window.process = {
     env: {
       NODE_ENV: import.meta.env.MODE || 'development',
@@ -101,7 +104,7 @@ if (!window.process) {
       VITE_API_URL: config.apiUrl,
       VITE_WS_HOST: config.wsHost,
       VITE_WS_PORT: config.wsPort,
-      VITE_EXTERNAL_PORT: import.meta.env.DEV ? '5000' : '443',
+      VITE_EXTERNAL_PORT: config.externalPort,
       VITE_REPL_SLUG: import.meta.env.VITE_REPL_SLUG,
       VITE_REPL_OWNER: import.meta.env.VITE_REPL_OWNER,
       VITE_HMR_TIMEOUT: config.hmrTimeout,
@@ -112,6 +115,7 @@ if (!window.process) {
   };
 }
 
+// Export environment configuration
 export const env = {
   NODE_ENV: window.process.env.NODE_ENV,
   DEV: window.process.env.DEV === 'true',
@@ -134,40 +138,29 @@ export const env = {
 export const isDevelopment = env.DEV;
 export const isProduction = env.PROD;
 
+// Get WebSocket URL for HMR
 export const getWebSocketUrl = () => {
   const replitDomain = getReplitDomain();
   const isHttps = window.location.protocol === 'https:';
+  const config = getHostInfo();
   
-  // Development configuration
-  if (isDevelopment) {
+  if (env.DEV) {
     const wsProtocol = isHttps ? 'wss' : 'ws';
-    const wsHost = replitDomain === 'localhost' ? '0.0.0.0' : replitDomain;
-    const wsPort = isHttps ? '5000' : '5173';
-    const wsUrl = `${wsProtocol}://${wsHost}:${wsPort}`;
-    console.debug('[WebSocket] Development URL:', wsUrl);
-    return wsUrl;
+    return `${wsProtocol}://${replitDomain}:${config.hmrPort}`;
   }
-
-  // Production configuration
-  const wsUrl = `wss://${replitDomain}`;
-  console.debug('[WebSocket] Production URL:', wsUrl);
-  return wsUrl;
+  return `wss://${replitDomain}`;
 };
 
+// Get API URL
 export const getApiUrl = () => {
   const replitDomain = getReplitDomain();
+  const config = getHostInfo();
   
-  // Development configuration
-  if (isDevelopment && replitDomain === 'localhost') {
-    const apiUrl = 'http://0.0.0.0:3001/api';
-    console.debug('[API] Development URL:', apiUrl);
-    return apiUrl;
+  if (env.DEV) {
+    return `http://${replitDomain}:${config.apiInternalPort}/api`;
   }
-
-  // Replit configuration
-  const apiUrl = `https://${replitDomain}/api`;
-  console.debug('[API] Production URL:', apiUrl);
-  return apiUrl;
+  return `https://${replitDomain}/api`;
 };
 
-export { env };
+// Export object storage client
+export const objectStorage = new Client();

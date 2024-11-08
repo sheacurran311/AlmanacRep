@@ -35,30 +35,21 @@ export default defineConfig({
       "@middleware": path.resolve(__dirname, "./src/middleware"),
     }
   },
-  server: {
-    host: true,
-    port: 5173,
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5173,
-      clientPort: 5000,
-      timeout: 120000
-    },
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-        ws: true
-      }
-    },
-    watch: {
-      usePolling: true,
-      interval: 1000
-    }
+server: {
+  host: '0.0.0.0',
+  port: 5173,
+  strictPort: true,
+  hmr: {
+    protocol: replitDomain === 'localhost' ? 'ws' : 'wss',
+    host: replitDomain,
+    clientPort: replitDomain === 'localhost' ? 5173 : 443,
   },
-  optimizeDeps: {
-    exclude: ['ws']
-  }
-});
+  proxy: {
+    '/api': {
+      target: 'http://localhost:3001',
+      changeOrigin: true,
+      secure: false,
+      ws: true,
+    },
+  },
+}
