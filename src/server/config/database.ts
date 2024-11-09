@@ -20,25 +20,49 @@ const poolConfig: PoolConfig = {
 
 const pool = new Pool(poolConfig);
 
-// Add connection error handling
-pool.on('error', (err) => {
-  console.error('[DATABASE] Unexpected error on idle client', err);
+// Enhanced error handling
+pool.on('error', (err: Error & { code?: string }) => {
+  console.error(`[${new Date().toISOString()}] [DATABASE] Unexpected error on idle client:`, {
+    error: err.message,
+    code: err.code,
+    stack: err.stack
+  });
 });
 
 pool.on('connect', () => {
-  console.log('[DATABASE] New client connected to pool');
+  console.log(`[${new Date().toISOString()}] [DATABASE] New client connected to pool`, {
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount
+  });
 });
 
 export class DatabaseManager extends BaseDatabaseManager {
   static async transaction<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await pool.connect();
     try {
+      const startTime = Date.now();
       await client.query('BEGIN');
       const result = await callback(client);
       await client.query('COMMIT');
+      const duration = Date.now() - startTime;
+      
+      console.log(`[${new Date().toISOString()}] [DATABASE] Transaction completed:`, {
+        duration: `${duration}ms`,
+        poolStats: {
+          total: pool.totalCount,
+          idle: pool.idleCount,
+          waiting: pool.waitingCount
+        }
+      });
+      
       return result;
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error(`[${new Date().toISOString()}] [DATABASE] Transaction failed:`, {
+        error,
+        timestamp: new Date().toISOString()
+      });
       throw error;
     } finally {
       client.release();

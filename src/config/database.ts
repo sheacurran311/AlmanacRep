@@ -1,8 +1,8 @@
 import pg from 'pg';
 const { Pool } = pg;
-import type { PoolConfig, PoolClient, QueryResult } from 'pg';
+import type { PoolConfig, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
-// Enhanced pool configuration with detailed documentation
+// Enhanced pool configuration with proper environment variables
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
   port: parseInt(process.env.PGPORT || '5432'),
@@ -12,18 +12,17 @@ const poolConfig: PoolConfig = {
   ssl: {
     rejectUnauthorized: false
   },
-  // Connection pool settings
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
-  keepAlive: true, // Keep connections alive
-  keepAliveInitialDelayMillis: 10000 // Delay before starting keepalive probes
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000
 };
 
 const pool = new Pool(poolConfig);
 
 // Enhanced connection monitoring
-pool.on('connect', (client) => {
+pool.on('connect', () => {
   console.log(`[${new Date().toISOString()}] [DATABASE] New client connected to pool`, {
     total: pool.totalCount,
     idle: pool.idleCount,
@@ -31,7 +30,7 @@ pool.on('connect', (client) => {
   });
 });
 
-pool.on('acquire', (client) => {
+pool.on('acquire', () => {
   console.log(`[${new Date().toISOString()}] [DATABASE] Client acquired from pool`, {
     total: pool.totalCount,
     idle: pool.idleCount,
@@ -39,7 +38,7 @@ pool.on('acquire', (client) => {
   });
 });
 
-pool.on('remove', (client) => {
+pool.on('remove', () => {
   console.log(`[${new Date().toISOString()}] [DATABASE] Client removed from pool`, {
     total: pool.totalCount,
     idle: pool.idleCount,
@@ -47,7 +46,7 @@ pool.on('remove', (client) => {
   });
 });
 
-pool.on('error', (err, client) => {
+pool.on('error', (err: Error & { code?: string }) => {
   console.error(`[${new Date().toISOString()}] [DATABASE] Unexpected error on idle client:`, {
     error: err.message,
     stack: err.stack,
@@ -59,14 +58,13 @@ pool.on('error', (err, client) => {
 });
 
 export class DatabaseManager {
-  static async query<T = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
+  static async query<T extends QueryResultRow>(text: string, params?: any[]): Promise<QueryResult<T>> {
     const client = await pool.connect();
     try {
       const startTime = Date.now();
       const result = await client.query<T>(text, params);
       const duration = Date.now() - startTime;
       
-      // Enhanced query logging with performance metrics
       console.log(`[${new Date().toISOString()}] [DATABASE] Query executed:`, {
         duration: `${duration}ms`,
         rowCount: result.rowCount,
@@ -130,6 +128,7 @@ export class DatabaseManager {
       await client.query('ROLLBACK');
       console.error(`[${new Date().toISOString()}] [DATABASE] Transaction failed:`, {
         error,
+        timestamp: new Date().toISOString(),
         poolStats: {
           total: pool.totalCount,
           idle: pool.idleCount,
