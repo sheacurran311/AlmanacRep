@@ -28,6 +28,7 @@ declare global {
   }
 }
 
+// Get Replit domain configuration
 export const getReplitDomain = () => {
   if (import.meta.env.VITE_REPL_SLUG && import.meta.env.VITE_REPL_OWNER) {
     return `${import.meta.env.VITE_REPL_SLUG}.${import.meta.env.VITE_REPL_OWNER}.repl.co`;
@@ -35,6 +36,7 @@ export const getReplitDomain = () => {
   return 'localhost';
 };
 
+// Enhanced host information with proper configurations
 export const getHostInfo = () => {
   const defaultConfig = {
     wsProtocol: 'ws',
@@ -47,47 +49,76 @@ export const getHostInfo = () => {
     hmrMaxRetries: '100',
     hmrReconnectDelayMin: '1000',
     hmrReconnectDelayMax: '30000',
-    hmrOverlay: true,
-    hmrPath: '@vite/client',
+    hmrPath: '/@vite/client',
     hmrClientPort: '443',
-    hmrWatchOptions: {
-      usePolling: true,
-      interval: 1000
-    }
+    dbPort: process.env.PGPORT || '5432'
   };
 
   try {
     const isDev = import.meta.env.DEV;
     const replitDomain = getReplitDomain();
     const isLocalhost = replitDomain === 'localhost';
-    const isHttps = window.location.protocol === 'https:';
+    const protocol = isLocalhost ? 'ws' : 'wss';
 
+    // Base URLs with proper host configuration
+    const apiBaseUrl = isLocalhost 
+      ? `http://0.0.0.0:${defaultConfig.apiInternalPort}`
+      : `https://${replitDomain}`;
+
+    const wsBaseUrl = isLocalhost
+      ? `${protocol}://0.0.0.0:${defaultConfig.frontendInternalPort}`
+      : `${protocol}://${replitDomain}`;
+
+    // Enhanced configuration
+    const config = {
+      ...defaultConfig,
+      wsProtocol: protocol,
+      wsHost: isLocalhost ? '0.0.0.0' : replitDomain,
+      wsPort: isLocalhost ? defaultConfig.frontendInternalPort : '443',
+      hmrPort: isLocalhost ? defaultConfig.frontendInternalPort : '443',
+      hmrProtocol: protocol,
+      hmrHost: isLocalhost ? '0.0.0.0' : replitDomain,
+      apiUrl: `${apiBaseUrl}/api`,
+      externalPort: isDev ? defaultConfig.frontendExternalPort : defaultConfig.apiExternalPort,
+      hmrWebSocketURL: wsBaseUrl,
+      hmrEnabled: true,
+      hmrWebSocketOptions: {
+        path: defaultConfig.hmrPath,
+        timeout: parseInt(defaultConfig.hmrTimeout),
+        overlay: true,
+        reconnect: true,
+        reloadOnFail: true,
+        host: isLocalhost ? '0.0.0.0' : replitDomain,
+        port: isLocalhost ? defaultConfig.frontendInternalPort : '443',
+        protocol: protocol,
+        clientPort: isLocalhost ? defaultConfig.frontendInternalPort : '443'
+      }
+    };
+
+    // Log configuration in development
     if (isDev) {
-      return {
-        ...defaultConfig,
-        wsProtocol: isHttps ? 'wss' : 'ws',
-        wsHost: isLocalhost ? '0.0.0.0' : replitDomain,
-        wsPort: defaultConfig.frontendInternalPort,
-        hmrPort: isLocalhost ? defaultConfig.frontendInternalPort : defaultConfig.hmrClientPort,
-        hmrProtocol: isLocalhost ? 'ws' : 'wss',
-        hmrHost: isLocalhost ? '0.0.0.0' : replitDomain,
-        apiUrl: isLocalhost 
-          ? `http://0.0.0.0:${defaultConfig.apiInternalPort}/api`
-          : `https://${replitDomain}/api`,
-        externalPort: defaultConfig.frontendExternalPort
-      };
+      console.log('[Environment] Development configuration:', {
+        replitDomain,
+        apiUrl: config.apiUrl,
+        wsUrl: config.hmrWebSocketURL,
+        ports: {
+          frontend: defaultConfig.frontendInternalPort,
+          api: defaultConfig.apiInternalPort,
+          db: defaultConfig.dbPort
+        }
+      });
     }
 
-    return {
-      ...defaultConfig,
+    // Return production config if not in development
+    return isDev ? config : {
+      ...config,
       wsProtocol: 'wss',
       wsHost: replitDomain,
       wsPort: '443',
       hmrPort: '443',
       hmrProtocol: 'wss',
       hmrHost: replitDomain,
-      apiUrl: `https://${replitDomain}/api`,
-      externalPort: defaultConfig.apiExternalPort
+      hmrWebSocketURL: `wss://${replitDomain}`
     };
   } catch (error) {
     console.error('[Environment] Error in getHostInfo:', error);
@@ -97,6 +128,7 @@ export const getHostInfo = () => {
 
 const config = getHostInfo();
 
+// Initialize process.env if not exists
 if (!window.process) {
   window.process = {
     env: {
@@ -121,6 +153,7 @@ if (!window.process) {
   };
 }
 
+// Export environment configuration
 export const env = {
   NODE_ENV: window.process.env.NODE_ENV,
   DEV: window.process.env.DEV === 'true',
@@ -138,35 +171,19 @@ export const env = {
   HMR_MAX_RETRIES: parseInt(window.process.env.VITE_HMR_MAX_RETRIES || '100'),
   HMR_RECONNECT_DELAY_MIN: parseInt(window.process.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000'),
   HMR_RECONNECT_DELAY_MAX: parseInt(window.process.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000')
-} as const;
+};
 
+// Export environment helpers
 export const isDevelopment = env.DEV;
 export const isProduction = env.PROD;
-
 export const getWebSocketUrl = () => {
   const config = getHostInfo();
-  const replitDomain = getReplitDomain();
-  const isLocalhost = replitDomain === 'localhost';
-
-  if (env.DEV) {
-    return isLocalhost 
-      ? `ws://0.0.0.0:${config.frontendInternalPort}` 
-      : `wss://${replitDomain}`;
-  }
-  return `wss://${replitDomain}`;
+  return config.hmrWebSocketURL;
 };
-
 export const getApiUrl = () => {
   const config = getHostInfo();
-  const replitDomain = getReplitDomain();
-  const isLocalhost = replitDomain === 'localhost';
-
-  if (env.DEV) {
-    return isLocalhost
-      ? `http://0.0.0.0:${config.apiInternalPort}/api`
-      : `https://${replitDomain}/api`;
-  }
-  return `https://${replitDomain}/api`;
+  return config.apiUrl;
 };
 
+// Initialize object storage client
 export const objectStorage = new Client();
