@@ -2,7 +2,6 @@ import pg from 'pg';
 const { Pool } = pg;
 import type { PoolConfig, PoolClient, QueryResult, QueryResultRow } from 'pg';
 
-// Enhanced pool configuration with proper environment variables
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
   port: parseInt(process.env.PGPORT || '5432'),
@@ -21,7 +20,6 @@ const poolConfig: PoolConfig = {
 
 const pool = new Pool(poolConfig);
 
-// Enhanced connection monitoring
 pool.on('connect', () => {
   console.log(`[${new Date().toISOString()}] [DATABASE] New client connected to pool`, {
     total: pool.totalCount,
@@ -49,8 +47,8 @@ pool.on('remove', () => {
 pool.on('error', (err: Error & { code?: string }) => {
   console.error(`[${new Date().toISOString()}] [DATABASE] Unexpected error on idle client:`, {
     error: err.message,
-    stack: err.stack,
     code: err.code,
+    stack: err.stack,
     total: pool.totalCount,
     idle: pool.idleCount,
     waiting: pool.waitingCount
@@ -58,7 +56,10 @@ pool.on('error', (err: Error & { code?: string }) => {
 });
 
 export class DatabaseManager {
-  static async query<T extends QueryResultRow>(text: string, params?: any[]): Promise<QueryResult<T>> {
+  static async query<T extends QueryResultRow = any>(
+    text: string,
+    params: any[] = []
+  ): Promise<QueryResult<T>> {
     const client = await pool.connect();
     try {
       const startTime = Date.now();
@@ -84,12 +85,12 @@ export class DatabaseManager {
       }
       
       return result;
-    } catch (error: any) {
+    } catch (error) {
       console.error(`[${new Date().toISOString()}] [DATABASE] Query error:`, {
-        message: error.message,
-        code: error.code,
-        detail: error.detail,
-        schema: error.schema,
+        message: error instanceof Error ? error.message : String(error),
+        code: (error as any).code,
+        detail: (error as any).detail,
+        schema: (error as any).schema,
         query: text,
         params,
         timestamp: new Date().toISOString(),
@@ -127,7 +128,7 @@ export class DatabaseManager {
     } catch (error) {
       await client.query('ROLLBACK');
       console.error(`[${new Date().toISOString()}] [DATABASE] Transaction failed:`, {
-        error,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
         poolStats: {
           total: pool.totalCount,
@@ -144,7 +145,7 @@ export class DatabaseManager {
   static async testConnection(): Promise<boolean> {
     try {
       const startTime = Date.now();
-      const result = await this.query('SELECT NOW()');
+      const result = await this.query('SELECT NOW()', []);
       const duration = Date.now() - startTime;
       
       console.log(`[${new Date().toISOString()}] [DATABASE] Connection test successful:`, {
@@ -159,7 +160,7 @@ export class DatabaseManager {
       return result.rowCount === 1;
     } catch (error) {
       console.error(`[${new Date().toISOString()}] [DATABASE] Connection test failed:`, {
-        error,
+        error: error instanceof Error ? error.message : String(error),
         poolStats: {
           total: pool.totalCount,
           idle: pool.idleCount,
@@ -181,4 +182,5 @@ export class DatabaseManager {
 }
 
 export const query = DatabaseManager.query.bind(DatabaseManager);
+export { Pool, PoolConfig, PoolClient, QueryResult, QueryResultRow };
 export default pool;
