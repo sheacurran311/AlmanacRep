@@ -1,6 +1,8 @@
 import pg from 'pg';
 const { Pool } = pg;
 import type { PoolConfig, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import fs from 'fs';
+import path from 'path';
 
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
@@ -20,6 +22,7 @@ const poolConfig: PoolConfig = {
 
 const pool = new Pool(poolConfig);
 
+// Enhanced connection monitoring
 pool.on('connect', () => {
   console.log(`[${new Date().toISOString()}] [DATABASE] New client connected to pool`, {
     total: pool.totalCount,
@@ -142,6 +145,60 @@ export class DatabaseManager {
     }
   }
 
+  static async initializeDatabase() {
+    try {
+      console.log(`[${new Date().toISOString()}] [DATABASE] Starting initialization`);
+      
+      // Read and execute schema.sql
+      const schemaPath = path.join(process.cwd(), 'src', 'config', 'schema.sql');
+      const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+      
+      await this.query(schemaSql);
+      
+      // Create default tenant if it doesn't exist
+      const checkTenant = await this.query(
+        'SELECT id FROM tenants WHERE name = $1',
+        ['default']
+      );
+      
+      if (checkTenant.rowCount === 0) {
+        console.log('Creating default tenant...');
+        await this.query(
+          'INSERT INTO tenants (name, display_name) VALUES ($1, $2) RETURNING id',
+          ['default', 'Default Tenant']
+        );
+        console.log('Default tenant created, initializing tenant schema...');
+        
+        // Initialize tenant-specific schema
+        await this.query(`
+          CREATE SCHEMA IF NOT EXISTS tenant_default;
+          SET search_path TO tenant_default, public;
+        `);
+      }
+      
+      // Create admin user if it doesn't exist
+      const checkAdmin = await this.query(
+        'SELECT id FROM users WHERE email = $1',
+        ['admin@example.com']
+      );
+      
+      if (checkAdmin.rowCount === 0) {
+        console.log('Creating admin user...');
+        await this.query(
+          'INSERT INTO users (email, password_hash, role, tenant_id) VALUES ($1, $2, $3, (SELECT id FROM tenants WHERE name = $4))',
+          ['admin@example.com', 'admin', 'admin', 'default']
+        );
+      }
+      
+      console.log('Database initialization completed successfully');
+      console.log(`[${new Date().toISOString()}] [DATABASE] Initialization completed`);
+      return true;
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [DATABASE] Initialization failed:`, error);
+      throw error;
+    }
+  }
+
   static async testConnection(): Promise<boolean> {
     try {
       const startTime = Date.now();
@@ -181,6 +238,13 @@ export class DatabaseManager {
   }
 }
 
+// For backward compatibility
+const deprecatedWarning = (oldPath: string) => {
+  console.warn(`[${new Date().toISOString()}] [DEPRECATED] Using database configuration from ${oldPath} is deprecated. Please update imports to use 'src/config/database.ts'`);
+};
+
+// Export everything needed for backward compatibility
 export const query = DatabaseManager.query.bind(DatabaseManager);
+export const initializeDatabase = DatabaseManager.initializeDatabase.bind(DatabaseManager);
 export { Pool, PoolConfig, PoolClient, QueryResult, QueryResultRow };
 export default pool;

@@ -1,5 +1,7 @@
 export const constants = {
   PORT: process.env.PORT ? parseInt(process.env.PORT) : 5000,
+  INTERNAL_PORT: process.env.INTERNAL_PORT ? parseInt(process.env.INTERNAL_PORT) : 3001,
+  EXTERNAL_PORT: process.env.PORT ? parseInt(process.env.PORT) : 80,
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   STRIPE_KEY: process.env.STRIPE_KEY,
   METAPLEX_RPC: process.env.METAPLEX_RPC || 'https://api.devnet.solana.com',
@@ -21,6 +23,15 @@ export const constants = {
   },
   HELIUS: {
     API_KEY: process.env.HELIUS_API_KEY,
+  },
+  VITE: {
+    DEV_SERVER_PORT: parseInt(process.env.VITE_DEV_SERVER_PORT || '5173'),
+    API_SERVER_PORT: parseInt(process.env.VITE_API_SERVER_PORT || '3001'),
+    EXTERNAL_PORT: parseInt(process.env.VITE_EXTERNAL_PORT || '5000'),
+    HMR_TIMEOUT: parseInt(process.env.VITE_HMR_TIMEOUT || '30000'),
+    HMR_MAX_RETRIES: parseInt(process.env.VITE_HMR_MAX_RETRIES || '100'),
+    HMR_RECONNECT_DELAY_MIN: parseInt(process.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000'),
+    HMR_RECONNECT_DELAY_MAX: parseInt(process.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000'),
   }
 };
 

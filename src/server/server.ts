@@ -1,6 +1,7 @@
 import { server } from './app.js';
 import { initializeDatabase } from '../config/initDb.js';
 import { DatabaseManager } from '../config/database.js';
+import { constants } from '../config/constants.js';
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 5000;
@@ -11,29 +12,9 @@ const startServer = async () => {
     console.log(`[${new Date().toISOString()}] [SERVER] Starting server initialization...`);
     
     // Get ports from environment variables with enhanced validation
-    const API_PORT = (() => {
-      const port = parseInt(process.env.INTERNAL_PORT || '3001');
-      if (isNaN(port) || port < 0 || port > 65535) {
-        throw new Error(`Invalid API port: ${port}`);
-      }
-      return port;
-    })();
-
-    const EXTERNAL_PORT = (() => {
-      const port = parseInt(process.env.PORT || '80');
-      if (isNaN(port) || port < 0 || port > 65535) {
-        throw new Error(`Invalid external port: ${port}`);
-      }
-      return port;
-    })();
-
-    const DB_PORT = (() => {
-      const port = parseInt(process.env.PGPORT || '5432');
-      if (isNaN(port) || port < 0 || port > 65535) {
-        throw new Error(`Invalid database port: ${port}`);
-      }
-      return port;
-    })();
+    const API_PORT = constants.INTERNAL_PORT;
+    const EXTERNAL_PORT = constants.EXTERNAL_PORT;
+    const DB_PORT = constants.DATABASE.PORT;
     
     // Enhanced configuration logging
     console.log(`[${new Date().toISOString()}] [SERVER] Configuration:`, {

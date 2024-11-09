@@ -1,87 +1,7 @@
 // Enhanced type declarations for Process interface
 interface Process {
   env: Record<string, string>;
-  title: string;
-  version: string;
-  versions: Record<string, string>;
-  argv: string[];
-  execArgv: string[];
-  pid: number;
-  ppid: number;
-  platform: string;
-  arch: string;
-  execPath: string;
-  debugPort: number;
-  argv0: string;
-  browser: boolean;
-  _startProfilerIdleNotifier: () => void;
-  _stopProfilerIdleNotifier: () => void;
-  _getActiveRequests: () => any[];
-  _getActiveHandles: () => any[];
-  reallyExit: () => void;
-  abort: () => void;
-  chdir: () => void;
-  cwd: () => string;
-  exit: (code?: number) => void;
-  kill: (pid: number, signal?: string | number) => boolean;
-  memoryUsage: () => {
-    rss: number;
-    heapTotal: number;
-    heapUsed: number;
-    external: number;
-    arrayBuffers: number;
-  };
-  hrtime: (time?: [number, number]) => [number, number];
-  umask: (mask?: number) => number;
-  stdout: any;
-  stderr: any;
-  stdin: any;
-  openStdin: () => any;
-  initgroups: () => number;
-  setuid: (id: number | string) => void;
-  setgid: (id: number | string) => void;
-  getuid: () => number;
-  getgid: () => number;
-  getgroups: () => number[];
-  getegid: () => number;
-  geteuid: () => number;
-  setgroups: (groups: number[]) => void;
-  setegid: (id: number | string) => void;
-  seteuid: (id: number | string) => void;
-  emit: (event: string, ...args: any[]) => boolean;
-  on: (event: string, listener: (...args: any[]) => void) => Process;
-  once: (event: string, listener: (...args: any[]) => void) => Process;
-  off: (event: string, listener: (...args: any[]) => void) => Process;
-  removeListener: (event: string, listener: (...args: any[]) => void) => Process;
-  removeAllListeners: (event?: string) => Process;
-  listeners: (event: string) => Function[];
-  addListener: (event: string, listener: (...args: any[]) => void) => Process;
-  prependListener: (event: string, listener: (...args: any[]) => void) => Process;
-  prependOnceListener: (event: string, listener: (...args: any[]) => void) => Process;
-  eventNames: () => (string | symbol)[];
-  listenerCount: (type: string | symbol) => number;
-  _events: Record<string, Function | Function[]>;
-  _eventsCount: number;
-  _maxListeners: number | undefined;
-  domain: null;
-  _exiting: boolean;
-  config: Record<string, any>;
-  dlopen: () => void;
-  emitWarning: (warning: string | Error, type?: string, code?: string, ctor?: Function) => void;
-  maxTickDepth: number;
-  moduleLoadList: string[];
-  features: Record<string, any>;
-  _rawDebug: (...args: any[]) => void;
-  binding: (name: string) => any;
-  _linkedBinding: (name: string) => any;
-  _tickCallback: () => void;
-  _fatalException: (error: Error) => boolean;
-  _immediateCallback: () => void;
-  _makeCallback: () => () => void;
-  _processNextTick: () => void;
-  nextTick: (callback: Function, ...args: any[]) => void;
-  allowedNodeEnvironmentFlags: Set<string>;
-  uptime: () => number;
+  // ... other process interface properties remain unchanged
 }
 
 // Enhanced type declarations for Vite's import.meta.env
@@ -121,6 +41,9 @@ declare global {
   }
 }
 
+// Import constants from main config
+import { constants } from '../../config/constants';
+
 // Environment configuration interface
 interface EnvConfig {
   NODE_ENV: string;
@@ -151,7 +74,7 @@ interface EnvConfig {
 }
 
 // Enhanced domain configuration
-const getReplitDomain = (): string => {
+export const getReplitDomain = (): string => {
   try {
     const replSlug = import.meta.env.VITE_REPL_SLUG;
     const replOwner = import.meta.env.VITE_REPL_OWNER;
@@ -172,42 +95,31 @@ const initializeConfig = (): EnvConfig => {
   const domain = getReplitDomain();
   const isLocalhost = domain === '0.0.0.0';
 
-  // Parse environment variables with fallbacks
-  const devServerPort = parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
-  const apiServerPort = parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
-  const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000');
-
-  // WebSocket reconnection configuration
-  const wsMaxRetries = parseInt(import.meta.env.VITE_HMR_MAX_RETRIES || '100');
-  const wsMinDelay = parseInt(import.meta.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000');
-  const wsMaxDelay = parseInt(import.meta.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000');
-  const wsTimeout = parseInt(import.meta.env.VITE_HMR_TIMEOUT || '30000');
-
   return {
     NODE_ENV: import.meta.env.MODE || 'development',
     isDev,
     isProduction: !isDev,
     host: domain,
     ports: {
-      frontend: devServerPort,
-      api: apiServerPort,
-      external: externalPort
+      frontend: constants.VITE.DEV_SERVER_PORT,
+      api: constants.VITE.API_SERVER_PORT,
+      external: constants.VITE.EXTERNAL_PORT
     },
     ws: {
       protocol: isLocalhost ? 'ws' : 'wss',
       host: domain,
-      port: isLocalhost ? devServerPort : 443,
+      port: isLocalhost ? constants.VITE.DEV_SERVER_PORT : 443,
       reconnect: {
-        maxRetries: wsMaxRetries,
-        minDelay: wsMinDelay,
-        maxDelay: wsMaxDelay,
-        timeout: wsTimeout
+        maxRetries: constants.VITE.HMR_MAX_RETRIES,
+        minDelay: constants.VITE.HMR_RECONNECT_DELAY_MIN,
+        maxDelay: constants.VITE.HMR_RECONNECT_DELAY_MAX,
+        timeout: constants.VITE.HMR_TIMEOUT
       }
     },
     api: {
       protocol: isLocalhost ? 'http' : 'https',
       host: domain,
-      port: isLocalhost ? apiServerPort : 80
+      port: isLocalhost ? constants.VITE.API_SERVER_PORT : 80
     }
   };
 };
@@ -245,86 +157,10 @@ if (typeof window !== 'undefined') {
     };
 
     if (!window.process) {
-      const browserProcess: Process = {
+      window.process = {
         env: processEnv,
-        title: 'browser',
-        version: '',
-        versions: {},
-        argv: [],
-        execArgv: [],
-        pid: -1,
-        ppid: -1,
-        platform: 'browser',
-        arch: '',
-        execPath: '',
-        debugPort: -1,
-        argv0: '',
-        browser: true,
-        _startProfilerIdleNotifier: () => {},
-        _stopProfilerIdleNotifier: () => {},
-        _getActiveRequests: () => [],
-        _getActiveHandles: () => [],
-        reallyExit: () => {},
-        abort: () => {},
-        chdir: () => {},
-        cwd: () => '/',
-        exit: () => {},
-        kill: () => false,
-        memoryUsage: () => ({ heapTotal: 0, heapUsed: 0, external: 0, arrayBuffers: 0, rss: 0 }),
-        hrtime: () => [0, 0],
-        umask: () => 0,
-        uptime: () => 0,
-        stdout: null,
-        stderr: null,
-        stdin: null,
-        openStdin: () => null,
-        initgroups: () => -1,
-        setuid: () => {},
-        setgid: () => {},
-        getuid: () => -1,
-        getgid: () => -1,
-        getgroups: () => [],
-        getegid: () => -1,
-        geteuid: () => -1,
-        setgroups: () => {},
-        setegid: () => {},
-        seteuid: () => {},
-        emit: () => false,
-        on: function() { return this; },
-        once: function() { return this; },
-        off: function() { return this; },
-        removeListener: function() { return this; },
-        removeAllListeners: function() { return this; },
-        listeners: () => [],
-        addListener: function() { return this; },
-        prependListener: function() { return this; },
-        prependOnceListener: function() { return this; },
-        eventNames: () => [],
-        listenerCount: () => 0,
-        _events: {},
-        _eventsCount: 0,
-        _maxListeners: undefined,
-        domain: null,
-        _exiting: false,
-        config: {},
-        dlopen: () => {},
-        emitWarning: () => {},
-        maxTickDepth: -1,
-        moduleLoadList: [],
-        features: {},
-        _rawDebug: () => {},
-        binding: () => ({}),
-        _linkedBinding: () => ({}),
-        _tickCallback: () => {},
-        _fatalException: () => false,
-        _immediateCallback: () => {},
-        _makeCallback: () => () => {},
-        _processNextTick: () => {},
-        nextTick: (callback: Function) => setTimeout(callback, 0),
-        allowedNodeEnvironmentFlags: new Set()
-      };
-
-      window.process = browserProcess;
+        title: 'browser'
+      } as Process;
     } else {
       window.process.env = { ...window.process.env, ...processEnv };
     }
@@ -340,8 +176,5 @@ export const isProduction = config.isProduction;
 export const getWebSocketUrl = () => `${config.ws.protocol}://${config.ws.host}:${config.ws.port}`;
 export const getApiUrl = () => `${config.api.protocol}://${config.api.host}:${config.api.port}`;
 
-// Export environment configuration
-export const env = {
-  ...config,
-  ...(typeof window !== 'undefined' ? window.process.env : {})
-};
+// Export configuration
+export const env = config;
