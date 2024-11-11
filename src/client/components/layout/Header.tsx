@@ -10,7 +10,6 @@ import {
   Button,
   MenuItem,
   useTheme,
-  useMediaQuery,
   CircularProgress,
   Alert,
   Snackbar
@@ -18,7 +17,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@client/hooks/useAuth';
-import { objectStorage } from '@client/utils/environment';
+import { objectStorage } from '@client/utils/setupEnv';
 
 const pages = [
   { title: 'Home', path: '/' },
@@ -35,7 +34,6 @@ const Header: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
     let mounted = true;

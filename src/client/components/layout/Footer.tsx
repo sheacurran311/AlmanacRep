@@ -6,7 +6,6 @@ import {
   Typography,
   IconButton,
   useTheme,
-  useMediaQuery,
   CircularProgress,
   Alert,
   Snackbar
@@ -15,11 +14,9 @@ import { Link } from 'react-router-dom';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import { objectStorage } from '@client/utils/environment';
+import { objectStorage } from '@client/utils/setupEnv';
 
 const Footer: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +71,6 @@ const Footer: React.FC = () => {
       >
         <Container maxWidth="lg">
           <Grid container spacing={4}>
-            {/* Company Info */}
             <Grid item xs={12} sm={6} md={4}>
               <Box sx={{ mb: 2 }}>
                 {loading ? (
@@ -155,7 +151,6 @@ const Footer: React.FC = () => {
               </Box>
             </Grid>
 
-            {/* Quick Links */}
             <Grid item xs={12} sm={6} md={4}>
               <Typography variant="h6" gutterBottom>
                 Quick Links
@@ -191,7 +186,6 @@ const Footer: React.FC = () => {
               </Box>
             </Grid>
 
-            {/* Contact Info */}
             <Grid item xs={12} md={4}>
               <Typography variant="h6" gutterBottom>
                 Contact Us
@@ -205,7 +199,6 @@ const Footer: React.FC = () => {
             </Grid>
           </Grid>
 
-          {/* Copyright */}
           <Box
             sx={{
               borderTop: '1px solid rgba(255, 255, 255, 0.1)',
