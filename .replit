@@ -65,7 +65,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NODE_ENV=development     VITE_DEV_SERVER_PORT=5173     VITE_API_SERVER_PORT=3001     VITE_EXTERNAL_PORT=5000     VITE_HMR_TIMEOUT=30000     VITE_HMR_MAX_RETRIES=100     VITE_HMR_RECONNECT_DELAY_MIN=1000     VITE_HMR_RECONNECT_DELAY_MAX=30000     VITE_REPL_SLUG=${REPL_SLUG}     VITE_REPL_OWNER=${REPL_OWNER}     npm run dev"
+args = "NODE_ENV=development VITE_DEV_SERVER_PORT=5173 VITE_API_SERVER_PORT=3001 VITE_EXTERNAL_PORT=5000 npm run dev"
 waitForPort = 5173
 
 [deployment]
