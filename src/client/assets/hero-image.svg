@@ -1,11 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#101636;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#5384c8;stop-opacity:1" />
     </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.1" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.2" />
+    </linearGradient>
   </defs>
-  <rect width="800" height="600" fill="url(#grad1)"/>
-  <text x="400" y="300" font-family="Arial" font-size="48" fill="white" text-anchor="middle">Almanac Labs</text>
-  <text x="400" y="350" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Next-Gen Loyalty Platform</text>
+  
+  <!-- Background -->
+  <rect width="800" height="600" fill="url(#bgGrad)"/>
+  
+  <!-- Decorative Elements -->
+  <circle cx="600" cy="150" r="80" fill="url(#cardGrad)" opacity="0.6"/>
+  <circle cx="200" cy="450" r="60" fill="url(#cardGrad)" opacity="0.4"/>
+  
+  <!-- Abstract Platform Representation -->
+  <rect x="250" y="200" width="300" height="200" rx="20" fill="url(#cardGrad)" stroke="#ffffff" stroke-width="2"/>
+  <rect x="280" y="240" width="240" height="40" rx="5" fill="#ffffff" fill-opacity="0.3"/>
+  <rect x="280" y="300" width="180" height="40" rx="5" fill="#ffffff" fill-opacity="0.3"/>
+  
+  <!-- Text Elements -->
+  <text x="400" y="150" font-family="Arial" font-size="48" fill="white" text-anchor="middle" font-weight="bold">
+    Almanac Labs
+  </text>
+  <text x="400" y="200" font-family="Arial" font-size="24" fill="white" text-anchor="middle" opacity="0.9">
+    Next-Gen Loyalty Platform
+  </text>
 </svg>

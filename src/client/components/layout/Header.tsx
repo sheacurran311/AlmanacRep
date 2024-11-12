@@ -9,15 +9,14 @@ import {
   Container,
   Button,
   MenuItem,
-  useTheme,
   CircularProgress,
   Alert,
   Snackbar
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@client/hooks/useAuth';
-import { objectStorage } from '@client/utils/setupEnv';
+import { useAuth } from '../../hooks/useAuth';
+import { objectStorage } from '../../utils/setupEnv';
 
 const pages = [
   { title: 'Home', path: '/' },
@@ -33,7 +32,6 @@ const Header: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const theme = useTheme();
 
   useEffect(() => {
     let mounted = true;

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Container, Typography, Button, Grid, Paper } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import heroImage from '../../assets/hero-image.svg';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -85,16 +84,22 @@ const Home: React.FC = () => {
                   transition: 'transform 0.5s ease'
                 }}
               >
-                <img 
-                  src={heroImage} 
-                  alt="Almanac Labs Platform" 
-                  style={{ 
-                    maxWidth: '100%',
-                    height: 'auto',
+                <Box
+                  sx={{
+                    width: '100%',
+                    height: '400px',
                     borderRadius: '10px',
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
-                  }} 
-                />
+                    background: 'linear-gradient(135deg, #dd20be, #5384c8)',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Typography variant="h3" color="white" align="center">
+                    Almanac Labs Platform
+                  </Typography>
+                </Box>
               </Box>
             </Grid>
           </Grid>

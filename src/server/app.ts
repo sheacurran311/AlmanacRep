@@ -6,6 +6,8 @@ import compression from 'compression';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import http from 'http';
+import { WebSocket, WebSocketServer } from 'ws';
+import { IncomingMessage } from 'http';
 import authRoutes from './routes/auth.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import nftRoutes from './routes/nft.js';
@@ -14,7 +16,7 @@ import analyticsRoutes from './routes/analytics.js';
 import campaignRoutes from './routes/campaigns.js';
 import customerRoutes from './routes/customers.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { WebSocketServer } from 'ws';
+import net from 'net';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -135,7 +137,7 @@ const heartbeatInterval = 30000;
 const connectionTimeout = 120000;
 
 const heartbeat = setInterval(() => {
-  wss.clients.forEach((ws: any) => {
+  wss.clients.forEach((ws: WebSocket & { isAlive?: boolean }) => {
     if (ws.isAlive === false) {
       console.log('[WebSocket] Terminating inactive connection');
       return ws.terminate();
@@ -155,7 +157,13 @@ wss.on('close', () => {
 });
 
 // WebSocket connection handler with enhanced error recovery
-wss.on('connection', (ws: any, req: any) => {
+wss.on('connection', (ws: WebSocket & { 
+  isAlive?: boolean, 
+  connectionTime?: number, 
+  pingCount?: number, 
+  maxPingRetries?: number, 
+  connectionTimeout?: NodeJS.Timeout 
+}, req: IncomingMessage) => {
   console.log(`[${new Date().toISOString()}] [WebSocket] New client connected from ${req.socket.remoteAddress}`);
   
   ws.isAlive = true;
@@ -165,7 +173,7 @@ wss.on('connection', (ws: any, req: any) => {
 
   // Set connection timeout
   ws.connectionTimeout = setTimeout(() => {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
       console.log('[WebSocket] Connection timeout, closing...');
       ws.close(1000, 'Connection timeout');
     }
@@ -195,7 +203,7 @@ wss.on('connection', (ws: any, req: any) => {
     console.log(`[${new Date().toISOString()}] [WebSocket] Client disconnected:`, {
       code,
       reason: reason.toString(),
-      duration: Date.now() - ws.connectionTime
+      duration: Date.now() - (ws.connectionTime || 0)
     });
   });
 
@@ -216,7 +224,7 @@ wss.on('connection', (ws: any, req: any) => {
 });
 
 // Enhanced WebSocket upgrade handling with better error handling
-server.on('upgrade', (request, socket, head) => {
+server.on('upgrade', (request: IncomingMessage, socket: net.Socket, head: Buffer) => {
   const origin = request.headers.origin;
   
   if (origin && corsOptions.origin) {
@@ -224,7 +232,7 @@ server.on('upgrade', (request, socket, head) => {
       if (err || !allowed) {
         console.error('[WebSocket] Unauthorized upgrade attempt:', {
           origin,
-          remoteAddress: socket.remoteAddress,
+          address: socket.remoteAddress,
           timestamp: new Date().toISOString()
         });
         socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');

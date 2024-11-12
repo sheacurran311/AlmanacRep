@@ -238,11 +238,6 @@ export class DatabaseManager {
   }
 }
 
-// For backward compatibility
-const deprecatedWarning = (oldPath: string) => {
-  console.warn(`[${new Date().toISOString()}] [DEPRECATED] Using database configuration from ${oldPath} is deprecated. Please update imports to use 'src/config/database.ts'`);
-};
-
 // Export everything needed for backward compatibility
 export const query = DatabaseManager.query.bind(DatabaseManager);
 export const initializeDatabase = DatabaseManager.initializeDatabase.bind(DatabaseManager);

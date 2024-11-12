@@ -1,16 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
-import { LoginRequest, RegistrationRequest } from '../controllers/authController.js';
+import { LoginRequest, RegistrationRequest } from '../server/controllers/authController';
 
 export const validateLoginInput = (
   req: Request<{}, {}, LoginRequest>,
   res: Response,
   next: NextFunction
 ) => {
-  const { email, password, tenantId } = req.body;
+  const { email, password } = req.body;
 
-  if (!email || !password || !tenantId) {
+  if (!email || !password) {
     return res.status(400).json({
-      message: 'Email, password, and tenant ID are required'
+      message: 'Email and password are required'
     });
   }
 

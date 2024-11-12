@@ -5,7 +5,6 @@ import {
   Grid,
   Typography,
   IconButton,
-  useTheme,
   CircularProgress,
   Alert,
   Snackbar
@@ -14,7 +13,7 @@ import { Link } from 'react-router-dom';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import { objectStorage } from '@client/utils/setupEnv';
+import { objectStorage } from '../../utils/setupEnv';
 
 const Footer: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);

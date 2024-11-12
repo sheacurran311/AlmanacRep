@@ -30,7 +30,8 @@
       "@config/*": ["./src/config/*"],
       "@utils/*": ["./src/utils/*"],
       "@middleware/*": ["./src/middleware/*"]
-    }
+    },
+    "types": ["vite/client", "node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [{ "path": "./tsconfig.node.json" }]

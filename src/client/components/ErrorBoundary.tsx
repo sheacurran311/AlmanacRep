@@ -1,6 +1,6 @@
-import React, { Component, ErrorInfo, ReactNode, useEffect } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { Box, Typography, Button, Container, Alert, CircularProgress, Snackbar } from '@mui/material';
-import { getWebSocketUrl } from '../utils/setupEnv';
+import { env } from '../utils/setupEnv';
 
 interface Props {
   children: ReactNode;
@@ -19,15 +19,10 @@ interface State {
     timestamp: number;
   }>;
   showNetworkError: boolean;
-  wsRetryCount: number;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   private reconnectTimeout: NodeJS.Timeout | null = null;
-  private wsConnection: WebSocket | null = null;
-  private maxReconnectAttempts = 50;
-  private baseDelay = 1000;
-  private maxDelay = 30000;
 
   public state: State = {
     hasError: false,
@@ -35,87 +30,23 @@ class ErrorBoundary extends Component<Props, State> {
     errorInfo: null,
     isRecovering: false,
     networkErrors: [],
-    showNetworkError: false,
-    wsRetryCount: 0
+    showNetworkError: false
   };
 
   componentDidMount() {
     window.addEventListener('unhandledrejection', this.handlePromiseRejection);
     window.addEventListener('online', this.handleOnline);
     window.addEventListener('offline', this.handleOffline);
-    this.initializeWebSocket();
   }
 
   componentWillUnmount() {
     window.removeEventListener('unhandledrejection', this.handlePromiseRejection);
     window.removeEventListener('online', this.handleOnline);
     window.removeEventListener('offline', this.handleOffline);
-    this.cleanupWebSocket();
-  }
-
-  private cleanupWebSocket = () => {
-    if (this.wsConnection) {
-      this.wsConnection.close();
-      this.wsConnection = null;
-    }
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
     }
-  };
-
-  private initializeWebSocket = () => {
-    try {
-      const wsUrl = getWebSocketUrl();
-      this.wsConnection = new WebSocket(wsUrl);
-      
-      this.wsConnection.onopen = () => {
-        console.debug('[WebSocket] Connection established');
-        this.setState({ wsRetryCount: 0 });
-      };
-
-      this.wsConnection.onclose = () => {
-        console.debug('[WebSocket] Connection closed');
-        this.handleWebSocketReconnect();
-      };
-
-      this.wsConnection.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
-        this.handleWebSocketError(error);
-      };
-    } catch (error) {
-      console.error('[WebSocket] Setup error:', error);
-      this.handleWebSocketError(error);
-    }
-  };
-
-  private handleWebSocketError = (error: any) => {
-    const errorMessage = error instanceof Error ? error.message : 'WebSocket connection error';
-    this.addNetworkError(errorMessage);
-    this.handleWebSocketReconnect();
-  };
-
-  private handleWebSocketReconnect = () => {
-    if (this.state.wsRetryCount >= this.maxReconnectAttempts) {
-      this.addNetworkError('Max WebSocket reconnection attempts reached');
-      return;
-    }
-
-    const delay = Math.min(
-      this.baseDelay * Math.pow(1.5, this.state.wsRetryCount),
-      this.maxDelay
-    );
-
-    this.setState(
-      prev => ({ wsRetryCount: prev.wsRetryCount + 1 }),
-      () => {
-        this.reconnectTimeout = setTimeout(() => {
-          this.cleanupWebSocket();
-          this.initializeWebSocket();
-        }, delay);
-      }
-    );
-  };
+  }
 
   private addNetworkError = (message: string) => {
     const newError = {
@@ -146,22 +77,20 @@ class ErrorBoundary extends Component<Props, State> {
   private handleOnline = () => {
     this.setState({
       networkErrors: [],
-      showNetworkError: false,
-      wsRetryCount: 0
+      showNetworkError: false
     });
-    this.initializeWebSocket();
   };
 
   private handleOffline = () => {
     this.addNetworkError('Internet connection lost');
-    this.cleanupWebSocket();
   };
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', {
       error,
       componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: env.NODE_ENV
     });
 
     this.setState({
@@ -185,13 +114,11 @@ class ErrorBoundary extends Component<Props, State> {
         errorInfo: null,
         isRecovering: false,
         networkErrors: [],
-        showNetworkError: false,
-        wsRetryCount: 0
+        showNetworkError: false
       });
       if (this.props.onReset) {
         this.props.onReset();
       }
-      this.initializeWebSocket();
     }, 500);
   };
 
@@ -200,7 +127,7 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   public render() {
-    const { hasError, error, errorInfo, isRecovering, networkErrors, showNetworkError, wsRetryCount } = this.state;
+    const { hasError, error, errorInfo, isRecovering, networkErrors, showNetworkError } = this.state;
 
     if (hasError) {
       if (this.props.fallback) {
@@ -284,11 +211,6 @@ class ErrorBoundary extends Component<Props, State> {
             onClose={this.handleDismissNetworkError}
           >
             {networkErrors[networkErrors.length - 1]?.message}
-            {wsRetryCount > 0 && wsRetryCount < this.maxReconnectAttempts && (
-              <Typography variant="caption" display="block">
-                Reconnection attempt {wsRetryCount} of {this.maxReconnectAttempts}
-              </Typography>
-            )}
           </Alert>
         </Snackbar>
       </>

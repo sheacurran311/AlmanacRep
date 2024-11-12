@@ -1,48 +1,8 @@
 // Enhanced type declarations for Process interface
-interface Process {
+interface CustomProcess extends Partial<NodeJS.Process> {
   env: Record<string, string>;
-  // ... other process interface properties remain unchanged
+  title?: string;
 }
-
-// Enhanced type declarations for Vite's import.meta.env
-declare global {
-  interface ImportMetaEnv {
-    MODE: string;
-    DEV: boolean;
-    PROD: boolean;
-    SSR: boolean;
-    BASE_URL: string;
-    VITE_REPL_SLUG?: string;
-    VITE_REPL_OWNER?: string;
-    VITE_DEV_SERVER_PORT?: string;
-    VITE_API_SERVER_PORT?: string;
-    VITE_EXTERNAL_PORT?: string;
-    VITE_HMR_TIMEOUT?: string;
-    VITE_HMR_MAX_RETRIES?: string;
-    VITE_HMR_RECONNECT_DELAY_MIN?: string;
-    VITE_HMR_RECONNECT_DELAY_MAX?: string;
-  }
-
-  interface ImportMeta {
-    readonly env: ImportMetaEnv;
-    readonly hot?: {
-      readonly accept: Function;
-      readonly dispose: Function;
-      readonly invalidate: Function;
-      readonly on: Function;
-      readonly send: Function;
-      readonly data: any;
-      readonly socket?: WebSocket;
-    }
-  }
-
-  interface Window {
-    process: Process;
-  }
-}
-
-// Import constants from main config
-import { constants } from '../../config/constants';
 
 // Environment configuration interface
 interface EnvConfig {
@@ -70,21 +30,29 @@ interface EnvConfig {
     protocol: string;
     host: string;
     port: number;
+    baseUrl: string;
+  };
+  objectStorage: {
+    baseUrl: string;
   };
 }
 
-// Enhanced domain configuration
+// Object storage interface
+export interface ObjectStorage {
+  getSignedUrl: (objectPath: string) => Promise<string>;
+}
+
+// Get domain configuration
 export const getReplitDomain = (): string => {
   try {
-    const replSlug = import.meta.env.VITE_REPL_SLUG;
-    const replOwner = import.meta.env.VITE_REPL_OWNER;
-    
-    if (replSlug && replOwner) {
-      return `${replSlug}.${replOwner}.repl.co`;
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      // Always return the actual hostname
+      return hostname;
     }
-    return '0.0.0.0';
+    return process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.repl.co` : '0.0.0.0';
   } catch (error) {
-    console.error('[Environment] Error getting Replit domain:', error);
+    console.error('[Environment] Error getting domain:', error);
     return '0.0.0.0';
   }
 };
@@ -93,74 +61,106 @@ export const getReplitDomain = (): string => {
 const initializeConfig = (): EnvConfig => {
   const isDev = import.meta.env.DEV;
   const domain = getReplitDomain();
-  const isLocalhost = domain === '0.0.0.0';
+  const isLocalhost = domain === '0.0.0.0' || domain === 'localhost';
 
-  return {
+  const config = {
     NODE_ENV: import.meta.env.MODE || 'development',
     isDev,
     isProduction: !isDev,
     host: domain,
     ports: {
-      frontend: constants.VITE.DEV_SERVER_PORT,
-      api: constants.VITE.API_SERVER_PORT,
-      external: constants.VITE.EXTERNAL_PORT
+      frontend: parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173'),
+      api: parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001'),
+      external: parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000')
     },
     ws: {
       protocol: isLocalhost ? 'ws' : 'wss',
       host: domain,
-      port: isLocalhost ? constants.VITE.DEV_SERVER_PORT : 443,
+      port: isLocalhost ? parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001') : 443,
       reconnect: {
-        maxRetries: constants.VITE.HMR_MAX_RETRIES,
-        minDelay: constants.VITE.HMR_RECONNECT_DELAY_MIN,
-        maxDelay: constants.VITE.HMR_RECONNECT_DELAY_MAX,
-        timeout: constants.VITE.HMR_TIMEOUT
+        maxRetries: 100,
+        minDelay: 1000,
+        maxDelay: 30000,
+        timeout: 30000
       }
     },
     api: {
       protocol: isLocalhost ? 'http' : 'https',
       host: domain,
-      port: isLocalhost ? constants.VITE.API_SERVER_PORT : 80
+      port: isLocalhost ? parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001') : 443,
+      baseUrl: ''
+    },
+    objectStorage: {
+      baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || ''
     }
   };
+
+  // Set API base URL correctly for development and production
+  config.api.baseUrl = isLocalhost
+    ? `${config.api.protocol}://${config.host}:${config.api.port}`
+    : `${config.api.protocol}://${config.host}`;
+
+  return config;
 };
 
 // Initialize configuration
 let config: EnvConfig;
 try {
   config = initializeConfig();
+  console.log('[Environment] Configuration initialized:', {
+    nodeEnv: config.NODE_ENV,
+    isDev: config.isDev,
+    apiBaseUrl: config.api.baseUrl,
+    wsConfig: {
+      protocol: config.ws.protocol,
+      host: config.ws.host,
+      port: config.ws.port
+    }
+  });
 } catch (error) {
   console.error('[Environment] Critical initialization error:', error);
   throw error;
 }
 
+// Object storage implementation
+export const objectStorage: ObjectStorage = {
+  getSignedUrl: async (objectPath: string): Promise<string> => {
+    try {
+      const response = await fetch(`${config.api.baseUrl}/api/storage/sign?path=${encodeURIComponent(objectPath)}`);
+      if (!response.ok) {
+        throw new Error('Failed to get signed URL');
+      }
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('[ObjectStorage] Error getting signed URL:', error);
+      throw error;
+    }
+  }
+};
+
 // Initialize process.env in browser environment
 if (typeof window !== 'undefined') {
   try {
     const processEnv: Record<string, string> = {
-      NODE_ENV: import.meta.env.MODE || 'development',
-      DEV: String(import.meta.env.DEV),
-      PROD: String(import.meta.env.PROD),
-      SSR: String(import.meta.env.SSR),
+      NODE_ENV: config.NODE_ENV,
+      DEV: String(config.isDev),
+      PROD: String(config.isProduction),
       BASE_URL: import.meta.env.BASE_URL || '/',
-      MODE: import.meta.env.MODE || 'development',
+      MODE: config.NODE_ENV,
+      VITE_API_BASE_URL: config.api.baseUrl,
       VITE_WS_PROTOCOL: config.ws.protocol,
-      VITE_API_URL: `${config.api.protocol}://${config.api.host}:${config.api.port}`,
       VITE_WS_HOST: config.host,
       VITE_WS_PORT: String(config.ws.port),
-      VITE_EXTERNAL_PORT: String(config.ports.external),
       VITE_DEV_SERVER_PORT: String(config.ports.frontend),
-      VITE_API_SERVER_PORT: String(config.ports.api),
-      VITE_HMR_TIMEOUT: String(config.ws.reconnect.timeout),
-      VITE_HMR_MAX_RETRIES: String(config.ws.reconnect.maxRetries),
-      VITE_HMR_RECONNECT_DELAY_MIN: String(config.ws.reconnect.minDelay),
-      VITE_HMR_RECONNECT_DELAY_MAX: String(config.ws.reconnect.maxDelay)
+      VITE_API_SERVER_PORT: String(config.ports.api)
     };
 
     if (!window.process) {
-      window.process = {
+      (window as any).process = {
         env: processEnv,
-        title: 'browser'
-      } as Process;
+        title: 'browser',
+      } as CustomProcess;
     } else {
       window.process.env = { ...window.process.env, ...processEnv };
     }
@@ -173,8 +173,8 @@ if (typeof window !== 'undefined') {
 // Export environment helpers
 export const isDevelopment = config.isDev;
 export const isProduction = config.isProduction;
-export const getWebSocketUrl = () => `${config.ws.protocol}://${config.ws.host}:${config.ws.port}`;
-export const getApiUrl = () => `${config.api.protocol}://${config.api.host}:${config.api.port}`;
+export const getWebSocketUrl = () => `${config.ws.protocol}://${config.ws.host}${config.ws.port !== 443 ? `:${config.ws.port}` : ''}`;
+export const getApiUrl = () => config.api.baseUrl;
 
 // Export configuration
 export const env = config;
