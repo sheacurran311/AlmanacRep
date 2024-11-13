@@ -1,125 +1,118 @@
 import { EventEmitter } from 'events';
 
-// Create base Stream class
+// Define interfaces for type safety
+interface StreamOptions {
+  highWaterMark?: number;
+  objectMode?: boolean;
+}
+
+// Base Stream class implementation
 class Stream extends EventEmitter {
-  constructor() {
+  protected _options: StreamOptions;
+
+  constructor(options: StreamOptions = {}) {
     super();
-    // Define non-enumerable properties
-    Object.defineProperties(this, {
-      _readableState: {
-        value: { objectMode: false, highWaterMark: 16384 },
-        writable: true,
-        configurable: false
-      },
-      _writableState: {
-        value: { objectMode: false, highWaterMark: 16384 },
-        writable: true,
-        configurable: false
-      }
-    });
+    this._options = {
+      highWaterMark: 16384,
+      objectMode: false,
+      ...options
+    };
   }
 
-  pipe(dest: any) {
+  pipe<T extends Stream>(dest: T): T {
     this.on('data', (chunk: any) => dest.write(chunk));
     this.on('end', () => dest.end());
     return dest;
   }
 
-  read() {
-    return null;
-  }
-
-  write(chunk: any) {
+  write(chunk: any): boolean {
     this.emit('data', chunk);
     return true;
   }
 
-  end() {
+  end(): void {
     this.emit('end');
   }
 }
 
-// Readable implementation
+// Readable stream implementation
 class Readable extends Stream {
-  constructor() {
-    super();
-    Object.defineProperty(this, 'readable', {
-      value: true,
-      writable: false,
-      configurable: false,
-      enumerable: true
-    });
+  readonly readable: boolean;
+
+  constructor(options: StreamOptions = {}) {
+    super(options);
+    this.readable = true;
+  }
+
+  read(): any {
+    return null;
   }
 }
 
-// Writable implementation
+// Writable stream implementation
 class Writable extends Stream {
-  constructor() {
-    super();
-    Object.defineProperty(this, 'writable', {
-      value: true,
-      writable: false,
-      configurable: false,
-      enumerable: true
-    });
+  readonly writable: boolean;
+
+  constructor(options: StreamOptions = {}) {
+    super(options);
+    this.writable = true;
   }
 }
 
-// Transform implementation
+// Transform stream implementation
 class Transform extends Stream {
-  constructor() {
-    super();
-    Object.defineProperties(this, {
-      readable: {
-        value: true,
-        writable: false,
-        configurable: false,
-        enumerable: true
-      },
-      writable: {
-        value: true,
-        writable: false,
-        configurable: false,
-        enumerable: true
-      }
-    });
+  readonly readable: boolean;
+  readonly writable: boolean;
+
+  constructor(options: StreamOptions = {}) {
+    super(options);
+    this.readable = true;
+    this.writable = true;
   }
 }
 
-// Create frozen stream API with method implementations
+// Create frozen stream API
 const streamAPI = Object.freeze({
   Stream,
   Readable,
   Writable,
   Transform,
-  // Add static methods
-  finished(stream: any, callback: (error?: Error) => void) {
-    stream.on('end', () => callback());
-    stream.on('error', (err: Error) => callback(err));
-  },
-  pipeline(...args: any[]) {
-    const streams = args.slice(0, -1);
-    const callback = args[args.length - 1];
-    
+  pipeline(...args: any[]): Stream {
+    const streams = args.slice(0, -1) as Stream[];
+    const callback = args[args.length - 1] as (error?: Error) => void;
+
     let current = streams[0];
     for (let i = 1; i < streams.length; i++) {
       current = current.pipe(streams[i]);
     }
-    
-    streamAPI.finished(current, callback);
+
+    current.on('error', callback);
+    current.on('end', () => callback());
     return current;
+  },
+  finished(stream: Stream, callback: (error?: Error) => void): void {
+    let ended = false;
+    
+    function onend() {
+      if (ended) return;
+      ended = true;
+      stream.removeListener('error', onerror);
+      stream.removeListener('end', onend);
+      callback();
+    }
+
+    function onerror(err: Error) {
+      if (ended) return;
+      ended = true;
+      stream.removeListener('error', onerror);
+      stream.removeListener('end', onend);
+      callback(err);
+    }
+
+    stream.on('error', onerror);
+    stream.on('end', onend);
   }
 });
-
-// Make stream available globally
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, 'stream', {
-    value: streamAPI,
-    writable: false,
-    configurable: false,
-    enumerable: true
-  });
-}
 
 export default streamAPI;
 export { Stream, Readable, Writable, Transform };

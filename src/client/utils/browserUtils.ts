@@ -1,46 +1,91 @@
+// Type definitions for better type safety
+type DebugLogFunc = (...args: any[]) => void;
+type InspectOptions = { depth?: number; colors?: boolean };
+
 // Browser-compatible utility functions
-export const debuglog = (section: string) => {
-  return (...args: any[]) => {
-    if (process.env.NODE_ENV === 'development') {
+const debuglog = (section: string): DebugLogFunc => {
+  const DEBUG = process.env.NODE_ENV === 'development';
+  return (...args: any[]): void => {
+    if (DEBUG) {
       console.log(`[${section}]`, ...args);
     }
   };
 };
 
-export const inspect = (obj: any, options?: any) => {
+const inspect = (obj: any, options?: InspectOptions): string => {
+  const opts = { depth: 2, colors: false, ...options };
+  
   try {
-    return JSON.stringify(obj, null, options?.depth || 2);
+    if (obj === null) return 'null';
+    if (obj === undefined) return 'undefined';
+    if (typeof obj === 'function') return obj.toString();
+    if (typeof obj !== 'object') return String(obj);
+    
+    const seen = new WeakSet();
+    const stringify = (val: any, depth: number): string => {
+      if (depth < 0) return '...';
+      if (val === null) return 'null';
+      if (val === undefined) return 'undefined';
+      if (typeof val === 'function') return val.toString();
+      if (typeof val !== 'object') return String(val);
+      if (seen.has(val)) return '[Circular]';
+      
+      seen.add(val);
+      
+      if (Array.isArray(val)) {
+        return `[ ${val.map(v => stringify(v, depth - 1)).join(', ')} ]`;
+      }
+      
+      const entries = Object.entries(val)
+        .map(([k, v]) => `${k}: ${stringify(v, depth - 1)}`);
+      return `{ ${entries.join(', ')} }`;
+    };
+    
+    return stringify(obj, opts.depth);
   } catch (error) {
     return String(obj);
   }
 };
 
-export const inherits = (ctor: any, superCtor: any) => {
+const inherits = (ctor: Function, superCtor: Function): void => {
   if (!ctor || !superCtor) {
-    throw new TypeError('Constructor and superConstructor must be valid');
+    throw new TypeError('Cannot set prototype to undefined');
   }
 
-  if (typeof ctor !== 'function' || typeof superCtor !== 'function') {
-    throw new TypeError('Constructor and superConstructor must be functions');
+  if (typeof ctor !== 'function') {
+    throw new TypeError('The constructor must be a function');
   }
 
-  // Create a safe prototype chain using Object.create
-  const proto = Object.create(superCtor.prototype || Object.prototype);
-  
-  // Set constructor property
-  Object.defineProperty(proto, 'constructor', {
-    value: ctor,
-    writable: true,
-    configurable: true
+  if (typeof superCtor !== 'function') {
+    throw new TypeError('The super constructor must be a function');
+  }
+
+  ctor.prototype = Object.create(superCtor.prototype, {
+    constructor: {
+      value: ctor,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
   });
 
-  // Set up prototype chain
-  ctor.prototype = proto;
-
-  // Store super constructor reference
   Object.defineProperty(ctor, 'super_', {
     value: superCtor,
     writable: false,
-    configurable: false
+    configurable: false,
+    enumerable: false
   });
 };
+
+const promisify = <T extends Function>(fn: T) => {
+  return (...args: any[]): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      fn(...args, (err: Error | null, ...result: any[]) => {
+        if (err) reject(err);
+        else resolve(result.length === 1 ? result[0] : result);
+      });
+    });
+  };
+};
+
+export { debuglog, inspect, inherits, promisify };
