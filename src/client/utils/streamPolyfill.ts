@@ -1,209 +1,37 @@
-// Browser-specific stream implementation
-type Listener = (...args: any[]) => void;
+import { EventEmitter } from 'events';
+import * as streamBrowserify from 'stream-browserify';
 
-interface EventMap {
-  [event: string]: Listener[];
+// Create factory functions that wrap stream-browserify functionality
+export function createStream(options?: any) {
+  return new streamBrowserify.Stream(options);
 }
 
-class EventEmitter {
-  private events: EventMap = {};
-
-  constructor() {
-    if (Object.getPrototypeOf(this) === undefined) {
-      Object.setPrototypeOf(this, EventEmitter.prototype);
-    }
-  }
-
-  on(event: string, listener: Listener): this {
-    if (!this.events[event]) {
-      this.events[event] = [];
-    }
-    this.events[event].push(listener);
-    return this;
-  }
-
-  emit(event: string, ...args: any[]): boolean {
-    const listeners = this.events[event];
-    if (listeners) {
-      listeners.forEach(listener => {
-        try {
-          listener.apply(this, args);
-        } catch (error) {
-          console.error('Error in event listener:', error);
-        }
-      });
-      return true;
-    }
-    return false;
-  }
-
-  removeListener(event: string, listener: Listener): this {
-    const listeners = this.events[event];
-    if (listeners) {
-      const index = listeners.indexOf(listener);
-      if (index !== -1) {
-        listeners.splice(index, 1);
-      }
-    }
-    return this;
-  }
-
-  removeAllListeners(event?: string): this {
-    if (event) {
-      delete this.events[event];
-    } else {
-      this.events = {};
-    }
-    return this;
-  }
+export function createReadableStream(options?: any) {
+  return new streamBrowserify.Readable(options);
 }
 
-// First establish the prototype chain
-Object.setPrototypeOf(EventEmitter.prototype, Object.prototype);
-
-class Stream extends EventEmitter {
-  readable: boolean;
-  writable: boolean;
-  protected destroyed: boolean;
-
-  constructor() {
-    super();
-    if (Object.getPrototypeOf(this) === undefined) {
-      Object.setPrototypeOf(this, Stream.prototype);
-    }
-    
-    this.readable = true;
-    this.writable = true;
-    this.destroyed = false;
-  }
-
-  pipe<T extends Stream>(destination: T): T {
-    if (this.destroyed) return destination;
-
-    const ondata = (chunk: any) => {
-      if (destination.writable) {
-        const canContinue = destination.write(chunk);
-        if (!canContinue) {
-          this.emit('pause');
-        }
-      }
-    };
-
-    const ondrain = () => {
-      if (this.readable) {
-        this.emit('resume');
-      }
-    };
-
-    const onend = () => {
-      destination.end();
-    };
-
-    const cleanup = () => {
-      this.removeListener('data', ondata);
-      destination.removeListener('drain', ondrain);
-      this.removeListener('end', onend);
-    };
-
-    this.on('data', ondata);
-    destination.on('drain', ondrain);
-    this.on('end', onend);
-    this.on('close', cleanup);
-    destination.on('close', cleanup);
-
-    return destination;
-  }
-
-  write(chunk: any): boolean {
-    if (!this.writable || this.destroyed) return false;
-    this.emit('data', chunk);
-    return true;
-  }
-
-  end(chunk?: any): void {
-    if (this.destroyed) return;
-    if (chunk !== undefined && this.writable) {
-      this.write(chunk);
-    }
-    this.writable = false;
-    this.emit('end');
-    this.destroy();
-  }
-
-  destroy(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
-    this.readable = false;
-    this.writable = false;
-    this.emit('close');
-    this.removeAllListeners();
-  }
+export function createWritableStream(options?: any) {
+  return new streamBrowserify.Writable(options);
 }
 
-Object.setPrototypeOf(Stream.prototype, EventEmitter.prototype);
-
-class Readable extends Stream {
-  constructor() {
-    super();
-    if (Object.getPrototypeOf(this) === undefined) {
-      Object.setPrototypeOf(this, Readable.prototype);
-    }
-    this.writable = false;
-  }
-
-  push(chunk: any): void {
-    if (chunk === null) {
-      this.readable = false;
-      this.emit('end');
-    } else if (this.readable) {
-      this.emit('data', chunk);
-    }
-  }
+export function createTransformStream(options?: any) {
+  return new streamBrowserify.Transform(options);
 }
 
-Object.setPrototypeOf(Readable.prototype, Stream.prototype);
+// Export stream constructors for direct usage if needed
+export const Stream = streamBrowserify.Stream;
+export const Readable = streamBrowserify.Readable;
+export const Writable = streamBrowserify.Writable;
+export const Transform = streamBrowserify.Transform;
 
-class Writable extends Stream {
-  constructor() {
-    super();
-    if (Object.getPrototypeOf(this) === undefined) {
-      Object.setPrototypeOf(this, Writable.prototype);
-    }
-    this.readable = false;
-  }
-}
-
-Object.setPrototypeOf(Writable.prototype, Stream.prototype);
-
-class Transform extends Stream {
-  constructor() {
-    super();
-    if (Object.getPrototypeOf(this) === undefined) {
-      Object.setPrototypeOf(this, Transform.prototype);
-    }
-  }
-
-  _transform(chunk: any): void {
-    if (this.writable) {
-      this.emit('data', chunk);
-    }
-  }
-
-  write(chunk: any): boolean {
-    if (!this.writable) return false;
-    this._transform(chunk);
-    return true;
-  }
-}
-
-Object.setPrototypeOf(Transform.prototype, Stream.prototype);
-
-const StreamModule = {
+// Default export for compatibility
+export default {
+  createStream,
+  createReadableStream,
+  createWritableStream,
+  createTransformStream,
   Stream,
   Readable,
   Writable,
-  Transform,
-  EventEmitter
+  Transform
 };
-
-export default StreamModule;
