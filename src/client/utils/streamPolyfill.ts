@@ -1,37 +1,125 @@
 import { EventEmitter } from 'events';
-import * as streamBrowserify from 'stream-browserify';
 
-// Create factory functions that wrap stream-browserify functionality
-export function createStream(options?: any) {
-  return new streamBrowserify.Stream(options);
+// Create base Stream class
+class Stream extends EventEmitter {
+  constructor() {
+    super();
+    // Define non-enumerable properties
+    Object.defineProperties(this, {
+      _readableState: {
+        value: { objectMode: false, highWaterMark: 16384 },
+        writable: true,
+        configurable: false
+      },
+      _writableState: {
+        value: { objectMode: false, highWaterMark: 16384 },
+        writable: true,
+        configurable: false
+      }
+    });
+  }
+
+  pipe(dest: any) {
+    this.on('data', (chunk: any) => dest.write(chunk));
+    this.on('end', () => dest.end());
+    return dest;
+  }
+
+  read() {
+    return null;
+  }
+
+  write(chunk: any) {
+    this.emit('data', chunk);
+    return true;
+  }
+
+  end() {
+    this.emit('end');
+  }
 }
 
-export function createReadableStream(options?: any) {
-  return new streamBrowserify.Readable(options);
+// Readable implementation
+class Readable extends Stream {
+  constructor() {
+    super();
+    Object.defineProperty(this, 'readable', {
+      value: true,
+      writable: false,
+      configurable: false,
+      enumerable: true
+    });
+  }
 }
 
-export function createWritableStream(options?: any) {
-  return new streamBrowserify.Writable(options);
+// Writable implementation
+class Writable extends Stream {
+  constructor() {
+    super();
+    Object.defineProperty(this, 'writable', {
+      value: true,
+      writable: false,
+      configurable: false,
+      enumerable: true
+    });
+  }
 }
 
-export function createTransformStream(options?: any) {
-  return new streamBrowserify.Transform(options);
+// Transform implementation
+class Transform extends Stream {
+  constructor() {
+    super();
+    Object.defineProperties(this, {
+      readable: {
+        value: true,
+        writable: false,
+        configurable: false,
+        enumerable: true
+      },
+      writable: {
+        value: true,
+        writable: false,
+        configurable: false,
+        enumerable: true
+      }
+    });
+  }
 }
 
-// Export stream constructors for direct usage if needed
-export const Stream = streamBrowserify.Stream;
-export const Readable = streamBrowserify.Readable;
-export const Writable = streamBrowserify.Writable;
-export const Transform = streamBrowserify.Transform;
-
-// Default export for compatibility
-export default {
-  createStream,
-  createReadableStream,
-  createWritableStream,
-  createTransformStream,
+// Create frozen stream API with method implementations
+const streamAPI = Object.freeze({
   Stream,
   Readable,
   Writable,
-  Transform
-};
+  Transform,
+  // Add static methods
+  finished(stream: any, callback: (error?: Error) => void) {
+    stream.on('end', () => callback());
+    stream.on('error', (err: Error) => callback(err));
+  },
+  pipeline(...args: any[]) {
+    const streams = args.slice(0, -1);
+    const callback = args[args.length - 1];
+    
+    let current = streams[0];
+    for (let i = 1; i < streams.length; i++) {
+      current = current.pipe(streams[i]);
+    }
+    
+    streamAPI.finished(current, callback);
+    return current;
+  }
+});
+
+// Make stream available globally
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'stream', {
+    value: streamAPI,
+    writable: false,
+    configurable: false,
+    enumerable: true
+  });
+}
+
+export default streamAPI;
+export { Stream, Readable, Writable, Transform };

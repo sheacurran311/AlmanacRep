@@ -1,23 +1,21 @@
-// Simple polyfill for util module functions needed in browser
-export const util = {
-  debuglog: (section: string) => {
-    return (...args: any[]) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[${section}]`, ...args);
-      }
-    };
-  },
-  inspect: (obj: any, options?: any) => {
-    try {
-      return JSON.stringify(obj, null, options?.depth || 2);
-    } catch (error) {
-      return String(obj);
-    }
-  }
-};
+// Import browser-compatible utility functions
+import { debuglog, inspect, inherits } from './browserUtils';
 
+// Create frozen util implementation
+const util = Object.freeze({
+  debuglog,
+  inspect,
+  inherits
+});
+
+// Make util available globally with proper property descriptors
 if (typeof window !== 'undefined') {
-  (window as any).util = util;
+  Object.defineProperty(window, 'util', {
+    value: util,
+    writable: false,
+    configurable: false,
+    enumerable: true
+  });
 }
 
 export default util;
