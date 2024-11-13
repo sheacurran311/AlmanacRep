@@ -1,6 +1,6 @@
 import pg from 'pg';
 const { Pool } = pg;
-import type { PoolConfig, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import type { PoolConfig, QueryResult, QueryResultRow } from 'pg';
 
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
@@ -20,7 +20,6 @@ const poolConfig: PoolConfig = {
 
 export const pool = new Pool(poolConfig);
 
-// Enhanced connection monitoring
 pool.on('connect', () => {
   console.log(`[${new Date().toISOString()}] [DATABASE] New client connected to pool`, {
     total: pool.totalCount,

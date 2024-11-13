@@ -17,6 +17,7 @@ import analyticsRoutes from './routes/analytics.js';
 import campaignRoutes from './routes/campaigns.js';
 import customerRoutes from './routes/customers.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { setupSwagger } from '../config/swagger.js';
 import net from 'net';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Setup Swagger documentation
+setupSwagger(app);
 
 // Basic middleware
 app.use(compression());
