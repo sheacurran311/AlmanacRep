@@ -1,23 +1,25 @@
-import './utils/processPolyfill';
-import './utils/streamPolyfill';
-import './utils/utilPolyfill';
-import './utils/setupEnv';
+// Load polyfills first
+import './utils/initPolyfills';
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/globals.css';
 
-const root = document.getElementById('root');
-if (!root) {
-  throw new Error('Root element not found');
-}
+// Ensure polyfills are initialized before mounting
+const mountApp = () => {
+  const root = document.getElementById('root');
+  if (!root) {
+    throw new Error('Root element not found');
+  }
 
-// Create React root with error boundary wrapper
-createRoot(root).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+  // Create React root with error boundary wrapper
+  createRoot(root).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+};
 
 // Setup Vite HMR
 if (import.meta.hot) {
@@ -29,3 +31,6 @@ if (import.meta.hot) {
     console.log('[HMR] Updated modules');
   });
 }
+
+// Mount the app after ensuring polyfills are loaded
+mountApp();
