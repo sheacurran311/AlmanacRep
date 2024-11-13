@@ -1,6 +1,7 @@
 import pg from 'pg';
 const { Pool } = pg;
 import type { PoolConfig, QueryResult, QueryResultRow } from 'pg';
+import { RetryManager } from '../utils/retry.js';
 
 const poolConfig: PoolConfig = {
   host: process.env.PGHOST,
@@ -36,29 +37,45 @@ pool.on('error', (err: Error) => {
 });
 
 export class DatabaseManager {
+  private static retryManager = new RetryManager({
+    maxRetries: 5,
+    initialDelay: 1000,
+    maxDelay: 30000,
+    onRetry: (attempt, error) => {
+      console.log(`[${new Date().toISOString()}] [DATABASE] Retry attempt ${attempt}:`, {
+        error: error.message,
+        nextAttemptIn: Math.min(1000 * Math.pow(2, attempt), 30000)
+      });
+    }
+  });
+
   static async query<T extends QueryResultRow = any>(
     text: string,
     params: any[] = []
   ): Promise<QueryResult<T>> {
-    const client = await pool.connect();
-    try {
-      const result = await client.query<T>(text, params);
-      return result;
-    } catch (error) {
-      console.error(`[${new Date().toISOString()}] [DATABASE] Query error:`, {
-        message: error instanceof Error ? error.message : String(error),
-        query: text,
-        params
-      });
-      throw error;
-    } finally {
-      client.release();
-    }
+    return this.retryManager.execute(async () => {
+      const client = await pool.connect();
+      try {
+        const result = await client.query<T>(text, params);
+        return result;
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] [DATABASE] Query error:`, {
+          message: error instanceof Error ? error.message : String(error),
+          query: text,
+          params
+        });
+        throw error;
+      } finally {
+        client.release();
+      }
+    });
   }
 
   static async testConnection(): Promise<boolean> {
     try {
-      await this.query('SELECT NOW()', []);
+      await this.retryManager.execute(async () => {
+        await this.query('SELECT NOW()', []);
+      });
       return true;
     } catch (error) {
       console.error(`[${new Date().toISOString()}] [DATABASE] Connection test failed:`, error);
