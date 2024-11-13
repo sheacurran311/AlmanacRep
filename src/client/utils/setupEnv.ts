@@ -55,16 +55,16 @@ interface EnvConfig {
   };
 }
 
-// Object storage interface
-export interface ObjectStorage {
-  getSignedUrl: (objectPath: string) => Promise<string>;
-}
-
 // Get domain configuration
 export const getReplitDomain = (): string => {
   if (typeof window !== 'undefined') {
-    return window.location.hostname;
+    const hostname = window.location.hostname;
+    // Check if running on Replit
+    if (hostname.includes('.repl.co')) {
+      return hostname;
+    }
   }
+  // Default to 0.0.0.0 for development
   return '0.0.0.0';
 };
 
@@ -73,6 +73,12 @@ const initializeConfig = (): EnvConfig => {
   const isDev = import.meta.env.DEV;
   const domain = getReplitDomain();
   const isLocalhost = domain === '0.0.0.0' || domain === 'localhost';
+  const isReplit = domain.includes('.repl.co');
+
+  // Determine correct ports based on environment
+  const frontendPort = isReplit ? 443 : parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
+  const apiPort = isReplit ? 443 : parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
+  const externalPort = isReplit ? 443 : parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000');
 
   const config = {
     NODE_ENV: import.meta.env.MODE || 'development',
@@ -80,14 +86,14 @@ const initializeConfig = (): EnvConfig => {
     isProduction: !isDev,
     host: domain,
     ports: {
-      frontend: parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173'),
-      api: parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001'),
-      external: parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000')
+      frontend: frontendPort,
+      api: apiPort,
+      external: externalPort
     },
     ws: {
       protocol: isLocalhost ? 'ws' : 'wss',
       host: domain,
-      port: isLocalhost ? parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001') : 443,
+      port: isReplit ? 443 : apiPort,
       reconnect: {
         maxRetries: 100,
         minDelay: 1000,
@@ -98,7 +104,7 @@ const initializeConfig = (): EnvConfig => {
     api: {
       protocol: isLocalhost ? 'http' : 'https',
       host: domain,
-      port: isLocalhost ? parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001') : 443,
+      port: isReplit ? 443 : apiPort,
       baseUrl: ''
     },
     objectStorage: {
@@ -106,6 +112,7 @@ const initializeConfig = (): EnvConfig => {
     }
   };
 
+  // Set API base URL based on environment
   config.api.baseUrl = isLocalhost
     ? `${config.api.protocol}://${config.host}:${config.api.port}`
     : `${config.api.protocol}://${config.host}`;
