@@ -1,15 +1,8 @@
 import { Client } from '@replit/object-storage';
-import { defineConfig } from 'vite';
 
 // Object storage interface
 export interface ObjectStorage {
-  getSignedUrl: (objectPath: string) => Promise<string>;
-}
-
-// Enhanced type declarations for Process interface
-interface CustomProcess extends Partial<NodeJS.Process> {
-  env: Record<string, string>;
-  title?: string;
+  createSignedUrl: (objectPath: string) => Promise<string>;
 }
 
 // Environment configuration interface
@@ -48,18 +41,18 @@ interface EnvConfig {
 
 const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
 
+// Initialize object storage client with proper typing
 export const objectStorage = new Client({
   bucketId: REPLIT_BUCKET_ID
-});
+}) as unknown as ObjectStorage;
 
 // Get domain configuration
 export const getReplitDomain = (): string => {
   try {
     if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      return hostname;
+      return window.location.hostname;
     }
-    return process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.repl.co` : '0.0.0.0';
+    return import.meta.env.VITE_REPL_SLUG ? `${import.meta.env.VITE_REPL_SLUG}.repl.co` : '0.0.0.0';
   } catch (error) {
     console.error('[Environment] Error getting domain:', error);
     return '0.0.0.0';
@@ -134,7 +127,7 @@ try {
 export const getSignedUrl = async (objectPath: string): Promise<string> => {
   try {
     if (config.isDev) {
-      const signedUrl = await objectStorage.getSignedUrl(objectPath);
+      const signedUrl = await objectStorage.createSignedUrl(objectPath);
       return signedUrl;
     }
     return `/${objectPath}`;
@@ -143,38 +136,6 @@ export const getSignedUrl = async (objectPath: string): Promise<string> => {
     return `/${objectPath}`;
   }
 };
-
-// Initialize process.env in browser environment
-if (typeof window !== 'undefined') {
-  try {
-    const processEnv: Record<string, string> = {
-      NODE_ENV: config.NODE_ENV,
-      DEV: String(config.isDev),
-      PROD: String(config.isProduction),
-      BASE_URL: import.meta.env.BASE_URL || '/',
-      MODE: config.NODE_ENV,
-      VITE_API_BASE_URL: config.api.baseUrl,
-      VITE_WS_PROTOCOL: config.ws.protocol,
-      VITE_WS_HOST: config.host,
-      VITE_WS_PORT: String(config.ws.port),
-      VITE_DEV_SERVER_PORT: String(config.ports.frontend),
-      VITE_API_SERVER_PORT: String(config.ports.api)
-    };
-
-    // Check if window.process exists and add or update the env
-    if (!window.process) {
-      (window as any).process = {
-        env: processEnv,
-        title: 'browser',
-      } as CustomProcess;
-    } else {
-      window.process.env = { ...window.process.env, ...processEnv };
-    }
-  } catch (error) {
-    console.error('[Environment] Error initializing process.env:', error);
-    throw error;
-  }
-}
 
 // Export environment helpers
 export const isDevelopment = config.isDev;
@@ -185,12 +146,17 @@ export const getApiUrl = () => config.api.baseUrl;
 // Export configuration
 export const env = config;
 
-// Define Vite configuration
-export default defineConfig({
-  define: {
-    'process.env': JSON.stringify(process.env)
-  },
-  server: {
-    port: 5173
-  }
-});
+// Define process.env for the browser environment
+if (typeof window !== 'undefined' && !window.process) {
+  window.process = {
+    env: {
+      NODE_ENV: config.NODE_ENV,
+      VITE_DEV_SERVER_PORT: String(config.ports.frontend),
+      VITE_API_SERVER_PORT: String(config.ports.api),
+      VITE_API_BASE_URL: config.api.baseUrl,
+      VITE_WS_PROTOCOL: config.ws.protocol,
+      VITE_WS_HOST: config.host,
+      VITE_WS_PORT: String(config.ws.port)
+    }
+  };
+}
