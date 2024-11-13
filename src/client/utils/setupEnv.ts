@@ -155,6 +155,9 @@ export const objectStorage: ObjectStorage = {
   }
 };
 
+// Export getSignedUrl directly as requested
+export const getSignedUrl = objectStorage.getSignedUrl;
+
 // Export environment helpers
 export const isDevelopment = config.isDev;
 export const isProduction = config.isProduction;
