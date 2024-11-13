@@ -1,3 +1,6 @@
+import './utils/processPolyfill';
+import './utils/streamPolyfill';
+import './utils/utilPolyfill';
 import './utils/setupEnv';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
