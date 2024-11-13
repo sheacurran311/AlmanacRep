@@ -2,8 +2,11 @@
 module.exports = {
   content: [
     "./src/client/**/*.{js,jsx,ts,tsx}",
-    "./src/components/**/*.{js,jsx,ts,tsx}",
-    "./index.html",
+    "./src/client/index.html",
+    "./src/client/components/**/*.{js,jsx,ts,tsx}",
+    "./src/client/routes/**/*.{js,jsx,ts,tsx}",
+    "./src/client/hooks/**/*.{js,jsx,ts,tsx}",
+    "./src/client/theme/**/*.{js,jsx,ts,tsx}",
   ],
   important: '#root',
   theme: {

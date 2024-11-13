@@ -8,27 +8,36 @@ interface EventMap {
 class EventEmitter {
   private events: EventMap = {};
 
-  on(event: string, listener: Listener): void {
+  constructor() {
+    if (Object.getPrototypeOf(this) === undefined) {
+      Object.setPrototypeOf(this, EventEmitter.prototype);
+    }
+  }
+
+  on(event: string, listener: Listener): this {
     if (!this.events[event]) {
       this.events[event] = [];
     }
     this.events[event].push(listener);
+    return this;
   }
 
-  emit(event: string, ...args: any[]): void {
+  emit(event: string, ...args: any[]): boolean {
     const listeners = this.events[event];
     if (listeners) {
       listeners.forEach(listener => {
         try {
-          listener(...args);
+          listener.apply(this, args);
         } catch (error) {
           console.error('Error in event listener:', error);
         }
       });
+      return true;
     }
+    return false;
   }
 
-  removeListener(event: string, listener: Listener): void {
+  removeListener(event: string, listener: Listener): this {
     const listeners = this.events[event];
     if (listeners) {
       const index = listeners.indexOf(listener);
@@ -36,8 +45,21 @@ class EventEmitter {
         listeners.splice(index, 1);
       }
     }
+    return this;
+  }
+
+  removeAllListeners(event?: string): this {
+    if (event) {
+      delete this.events[event];
+    } else {
+      this.events = {};
+    }
+    return this;
   }
 }
+
+// First establish the prototype chain
+Object.setPrototypeOf(EventEmitter.prototype, Object.prototype);
 
 class Stream extends EventEmitter {
   readable: boolean;
@@ -46,6 +68,10 @@ class Stream extends EventEmitter {
 
   constructor() {
     super();
+    if (Object.getPrototypeOf(this) === undefined) {
+      Object.setPrototypeOf(this, Stream.prototype);
+    }
+    
     this.readable = true;
     this.writable = true;
     this.destroyed = false;
@@ -54,22 +80,36 @@ class Stream extends EventEmitter {
   pipe<T extends Stream>(destination: T): T {
     if (this.destroyed) return destination;
 
-    this.on('data', (chunk) => {
+    const ondata = (chunk: any) => {
       if (destination.writable) {
         const canContinue = destination.write(chunk);
         if (!canContinue) {
           this.emit('pause');
         }
       }
-    });
+    };
 
-    destination.on('drain', () => {
-      this.emit('resume');
-    });
+    const ondrain = () => {
+      if (this.readable) {
+        this.emit('resume');
+      }
+    };
 
-    this.on('end', () => {
+    const onend = () => {
       destination.end();
-    });
+    };
+
+    const cleanup = () => {
+      this.removeListener('data', ondata);
+      destination.removeListener('drain', ondrain);
+      this.removeListener('end', onend);
+    };
+
+    this.on('data', ondata);
+    destination.on('drain', ondrain);
+    this.on('end', onend);
+    this.on('close', cleanup);
+    destination.on('close', cleanup);
 
     return destination;
   }
@@ -96,12 +136,18 @@ class Stream extends EventEmitter {
     this.readable = false;
     this.writable = false;
     this.emit('close');
+    this.removeAllListeners();
   }
 }
+
+Object.setPrototypeOf(Stream.prototype, EventEmitter.prototype);
 
 class Readable extends Stream {
   constructor() {
     super();
+    if (Object.getPrototypeOf(this) === undefined) {
+      Object.setPrototypeOf(this, Readable.prototype);
+    }
     this.writable = false;
   }
 
@@ -115,14 +161,28 @@ class Readable extends Stream {
   }
 }
 
+Object.setPrototypeOf(Readable.prototype, Stream.prototype);
+
 class Writable extends Stream {
   constructor() {
     super();
+    if (Object.getPrototypeOf(this) === undefined) {
+      Object.setPrototypeOf(this, Writable.prototype);
+    }
     this.readable = false;
   }
 }
 
+Object.setPrototypeOf(Writable.prototype, Stream.prototype);
+
 class Transform extends Stream {
+  constructor() {
+    super();
+    if (Object.getPrototypeOf(this) === undefined) {
+      Object.setPrototypeOf(this, Transform.prototype);
+    }
+  }
+
   _transform(chunk: any): void {
     if (this.writable) {
       this.emit('data', chunk);
@@ -136,7 +196,8 @@ class Transform extends Stream {
   }
 }
 
-// Export as a namespace-like object
+Object.setPrototypeOf(Transform.prototype, Stream.prototype);
+
 const StreamModule = {
   Stream,
   Readable,
