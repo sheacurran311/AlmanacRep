@@ -10,9 +10,13 @@ interface ExtendedClient extends Client {
 
 const client = new Client({ bucketId: REPLIT_BUCKET_ID }) as ExtendedClient;
 
-// Environment specific configuration interface
+// Environment type definitions
+type Environment = 'development' | 'staging' | 'production' | 'test';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogFormat = 'detailed' | 'json' | 'simple';
+
 interface EnvConfig {
-  NODE_ENV: string;
+  NODE_ENV: Environment;
   isDev: boolean;
   isProduction: boolean;
   isStaging: boolean;
@@ -24,7 +28,7 @@ interface EnvConfig {
     external: number;
   };
   ws: {
-    protocol: string;
+    protocol: 'ws' | 'wss';
     host: string;
     port: number;
     reconnect: {
@@ -35,26 +39,62 @@ interface EnvConfig {
     };
   };
   api: {
-    protocol: string;
+    protocol: 'http' | 'https';
     host: string;
     port: number;
     baseUrl: string;
     timeout: number;
     retryAttempts: number;
+    rateLimiting?: {
+      enabled: boolean;
+      maxRequests: number;
+      timeWindow: number;
+    };
   };
   objectStorage: {
     baseUrl: string;
     maxFileSize: number;
     allowedTypes: string[];
+    cacheDuration: number;
   };
   logging: {
-    level: string;
-    format: string;
+    level: LogLevel;
+    format: LogFormat;
     timestamp: boolean;
+    console: boolean;
+    file: boolean;
+    maxFiles?: number;
+    maxSize?: number;
   };
   cache: {
     enabled: boolean;
     ttl: number;
+    maxSize: number;
+    strategy: 'lru' | 'fifo';
+  };
+  security: {
+    cors: {
+      enabled: boolean;
+      origins: string[];
+      methods: string[];
+      credentials: boolean;
+    };
+    rateLimit: {
+      enabled: boolean;
+      maxRequests: number;
+      windowMs: number;
+      errorMessage?: string;
+    };
+    csrf: {
+      enabled: boolean;
+      ignoreMethods: string[];
+    };
+  };
+  features: {
+    multitenant: boolean;
+    analytics: boolean;
+    websockets: boolean;
+    objectStorage: boolean;
   };
 }
 
@@ -82,7 +122,7 @@ const initializeConfig = (): EnvConfig => {
   const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000');
 
   const config: EnvConfig = {
-    NODE_ENV: mode,
+    NODE_ENV: mode as Environment,
     isDev,
     isProduction,
     isStaging,
@@ -110,21 +150,57 @@ const initializeConfig = (): EnvConfig => {
       port: isLocalhost ? apiPort : 443,
       baseUrl: '',
       timeout: isDev ? 30000 : 60000,
-      retryAttempts: isDev ? 3 : 5
+      retryAttempts: isDev ? 3 : 5,
+      rateLimiting: !isDev ? {
+        enabled: true,
+        maxRequests: isProduction ? 100 : 200,
+        timeWindow: 60000
+      } : undefined
     },
     objectStorage: {
       baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || '',
-      maxFileSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024, // 10MB in dev, 5MB in prod
-      allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+      maxFileSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
+      allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
+      cacheDuration: isDev ? 0 : isProduction ? 3600 : 1800
     },
     logging: {
-      level: isDev ? 'debug' : 'info',
+      level: isDev ? 'debug' : isProduction ? 'info' : 'debug',
       format: isDev ? 'detailed' : 'json',
-      timestamp: true
+      timestamp: true,
+      console: isDev || isStaging,
+      file: !isDev,
+      maxFiles: isDev ? 5 : 30,
+      maxSize: isDev ? 10 * 1024 * 1024 : 100 * 1024 * 1024
     },
     cache: {
       enabled: !isDev,
-      ttl: isDev ? 300 : 3600 // 5 minutes in dev, 1 hour in prod
+      ttl: isDev ? 300 : isProduction ? 3600 : 1800,
+      maxSize: isDev ? 100 : isProduction ? 1000 : 500,
+      strategy: isDev ? 'fifo' : 'lru'
+    },
+    security: {
+      cors: {
+        enabled: true,
+        origins: isDev ? ['*'] : [domain],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+        credentials: !isDev
+      },
+      rateLimit: {
+        enabled: !isDev,
+        maxRequests: isDev ? 1000 : isProduction ? 100 : 200,
+        windowMs: 60000,
+        errorMessage: 'Too many requests, please try again later.'
+      },
+      csrf: {
+        enabled: !isDev,
+        ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
+      }
+    },
+    features: {
+      multitenant: true,
+      analytics: !isDev,
+      websockets: true,
+      objectStorage: true
     }
   };
 
@@ -156,7 +232,7 @@ try {
   throw error;
 }
 
-// Export environment utilities and polyfills
+// Utility functions
 export const objectStorage = {
   getSignedUrl: async (objectPath: string): Promise<string> => {
     if (config.isDev) {
@@ -171,7 +247,7 @@ export const objectStorage = {
   }
 };
 
-// Export environment-specific configurations and utilities
+// Exports
 export const getSignedUrl = objectStorage.getSignedUrl;
 export const isDevelopment = config.isDev;
 export const isProduction = config.isProduction;
@@ -182,8 +258,9 @@ export const getWebSocketUrl = () =>
 export const getApiUrl = () => config.api.baseUrl;
 export const getCacheConfig = () => config.cache;
 export const getLoggingConfig = () => config.logging;
+export const getSecurityConfig = () => config.security;
+export const getFeaturesConfig = () => config.features;
 
-// Export polyfills
 export const stream = streamAPI;
 export const util = utilAPI;
 export { Stream, Readable, Writable, Transform };

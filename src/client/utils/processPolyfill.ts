@@ -12,7 +12,6 @@ interface ProcessEnv {
 
 // Initialize process object for browser environment
 if (typeof window !== 'undefined' && !window.process) {
-  // Create environment object with proper type checking
   const processEnv: ProcessEnv = {
     NODE_ENV: import.meta.env.MODE || 'development',
     VITE_DEV_SERVER_PORT: import.meta.env.VITE_DEV_SERVER_PORT,
@@ -24,56 +23,21 @@ if (typeof window !== 'undefined' && !window.process) {
     VITE_OBJECT_STORAGE_URL: import.meta.env.VITE_OBJECT_STORAGE_URL
   };
 
-  // Create process prototype
-  const processProto = {
-    title: 'browser',
-    platform: 'browser',
+  // Create global process object
+  const process = {
+    env: processEnv,
     browser: true,
     version: '1.0.0',
-    stdout: null,
-    stderr: null,
-    stdin: null,
-    argv: [],
-    argv0: '',
-    execArgv: [],
-    execPath: '',
-    debugPort: -1,
-    abort: () => {},
-    chdir: () => {},
-    cwd: () => '/',
-    exit: () => {},
-    pid: -1,
-    ppid: -1,
-    umask: () => 0,
-    uptime: () => 0,
-    hrtime: () => [0, 0],
-    arch: 'web',
-    type: 'browser',
-    nextTick: (fn: () => void) => setTimeout(fn, 0),
-    emitWarning: (warning: string | Error) => {
-      console.warn(warning);
-    },
-    env: processEnv
+    title: 'browser',
+    platform: 'browser',
+    nextTick: (fn: () => void) => setTimeout(fn, 0)
   };
 
-  // Create process object with proper prototype chain
-  const processObj = Object.create(processProto);
-
-  // Define non-enumerable properties
-  Object.defineProperties(processObj, {
-    env: {
-      value: processEnv,
-      enumerable: true,
-      configurable: true,
-      writable: true
-    }
-  });
-
-  // Set process on window
+  // Add process to window
   Object.defineProperty(window, 'process', {
-    value: processObj,
+    value: Object.freeze(process),
     enumerable: true,
-    writable: false,
-    configurable: true
+    configurable: false,
+    writable: false
   });
 }

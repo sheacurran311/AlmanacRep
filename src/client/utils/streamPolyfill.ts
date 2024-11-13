@@ -6,7 +6,7 @@ interface StreamOptions {
   objectMode?: boolean;
 }
 
-interface IStream extends EventEmitter {
+interface IStream {
   readable: boolean;
   writable: boolean;
   pipe<T extends NodeJS.WritableStream>(destination: T): T;
@@ -15,14 +15,13 @@ interface IStream extends EventEmitter {
   end?(): void;
 }
 
-class BaseStream implements IStream {
+class BaseStream extends EventEmitter {
   protected _options: StreamOptions;
   readable: boolean = false;
   writable: boolean = false;
-  private readonly eventEmitter: EventEmitter;
 
   constructor(options: StreamOptions = {}) {
-    this.eventEmitter = new EventEmitter();
+    super();
     this._options = {
       highWaterMark: 16384,
       objectMode: false,
@@ -30,93 +29,21 @@ class BaseStream implements IStream {
     };
   }
 
-  // EventEmitter implementation
-  addListener(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.addListener(event, listener);
-    return this;
-  }
-
-  on(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.on(event, listener);
-    return this;
-  }
-
-  once(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.once(event, listener);
-    return this;
-  }
-
-  removeListener(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.removeListener(event, listener);
-    return this;
-  }
-
-  off(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.off(event, listener);
-    return this;
-  }
-
-  removeAllListeners(event?: string | symbol): this {
-    this.eventEmitter.removeAllListeners(event);
-    return this;
-  }
-
-  setMaxListeners(n: number): this {
-    this.eventEmitter.setMaxListeners(n);
-    return this;
-  }
-
-  getMaxListeners(): number {
-    return this.eventEmitter.getMaxListeners();
-  }
-
-  listeners(event: string | symbol): Function[] {
-    return this.eventEmitter.listeners(event);
-  }
-
-  rawListeners(event: string | symbol): Function[] {
-    return this.eventEmitter.rawListeners(event);
-  }
-
-  emit(event: string | symbol, ...args: any[]): boolean {
-    return this.eventEmitter.emit(event, ...args);
-  }
-
-  listenerCount(event: string | symbol): number {
-    return this.eventEmitter.listenerCount(event);
-  }
-
-  prependListener(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.prependListener(event, listener);
-    return this;
-  }
-
-  prependOnceListener(event: string | symbol, listener: (...args: any[]) => void): this {
-    this.eventEmitter.prependOnceListener(event, listener);
-    return this;
-  }
-
-  eventNames(): Array<string | symbol> {
-    return this.eventEmitter.eventNames();
-  }
-
   pipe<T extends NodeJS.WritableStream>(destination: T): T {
-    if (!destination || typeof destination.write !== 'function' || typeof destination.end !== 'function') {
+    if (!destination || typeof destination.write !== 'function') {
       throw new Error('Invalid destination stream');
     }
 
     const ondata = (chunk: any): void => {
       if (destination.write(chunk) === false) {
-        this.pause();
+        this.emit('pause');
       }
     };
 
     this.on('data', ondata);
 
     const ondrain = (): void => {
-      if (typeof (this as any).resume === 'function') {
-        (this as any).resume();
-      }
+      this.emit('resume');
     };
 
     destination.on('drain', ondrain);
@@ -125,21 +52,8 @@ class BaseStream implements IStream {
     const onend = (): void => {
       if (didOnEnd) return;
       didOnEnd = true;
-
-      destination.end();
-    };
-
-    const onclose = (): void => {
-      if (didOnEnd) return;
-      didOnEnd = true;
-
-      if (typeof destination.destroy === 'function') destination.destroy();
-    };
-
-    const onerror = (er: Error): void => {
-      cleanup();
-      if (this.listenerCount('error') === 0) {
-        throw er;
+      if (typeof destination.end === 'function') {
+        destination.end();
       }
     };
 
@@ -147,29 +61,32 @@ class BaseStream implements IStream {
       this.removeListener('data', ondata);
       destination.removeListener('drain', ondrain);
       this.removeListener('end', onend);
-      this.removeListener('close', onclose);
       this.removeListener('error', onerror);
       destination.removeListener('error', onerror);
+    };
+
+    const onerror = (err: Error): void => {
+      cleanup();
+      this.emit('error', err);
     };
 
     this.on('error', onerror);
     destination.on('error', onerror);
     this.on('end', onend);
-    this.on('close', onclose);
 
     return destination;
   }
 }
 
-class Stream extends BaseStream {}
+export class Stream extends BaseStream {}
 
-class Readable extends BaseStream {
+export class Readable extends BaseStream {
   constructor(options?: StreamOptions) {
     super(options);
     this.readable = true;
   }
 
-  read(size?: number): any {
+  read(_size?: number): any {
     return null;
   }
 
@@ -186,13 +103,9 @@ class Readable extends BaseStream {
   isPaused(): boolean {
     return false;
   }
-
-  pipe<T extends NodeJS.WritableStream>(dest: T): T {
-    return super.pipe(dest);
-  }
 }
 
-class Writable extends BaseStream {
+export class Writable extends BaseStream {
   constructor(options?: StreamOptions) {
     super(options);
     this.writable = true;
@@ -211,14 +124,30 @@ class Writable extends BaseStream {
     return true;
   }
 
-  end(callback?: () => void): void {
-    if (callback) this.once('finish', callback);
+  end(chunk?: any, encoding?: string, callback?: () => void): void {
+    if (typeof chunk === 'function') {
+      callback = chunk;
+      chunk = null;
+    }
+    if (typeof encoding === 'function') {
+      callback = encoding;
+      encoding = undefined;
+    }
+    
+    if (chunk != null) {
+      this.write(chunk, encoding as string);
+    }
+    
+    if (callback) {
+      this.once('finish', callback);
+    }
+    
     this.emit('finish');
     this.emit('end');
   }
 }
 
-class Transform extends BaseStream {
+export class Transform extends BaseStream {
   constructor(options?: StreamOptions) {
     super(options);
     this.readable = true;
@@ -226,8 +155,7 @@ class Transform extends BaseStream {
   }
 }
 
-// Stream utility functions with proper error handling
-function pipeline(...streams: Array<IStream | ((error?: Error) => void)>): IStream {
+export function pipeline(...streams: Array<BaseStream | ((error?: Error) => void)>): BaseStream {
   if (streams.length < 2) {
     throw new Error('Pipeline requires at least 2 streams');
   }
@@ -237,32 +165,23 @@ function pipeline(...streams: Array<IStream | ((error?: Error) => void)>): IStre
     throw new Error('Last argument must be a callback');
   }
 
-  const streamArray = streams.slice(0, -1) as IStream[];
+  const streamArray = streams.slice(0, -1) as BaseStream[];
   let current = streamArray[0];
 
-  try {
-    for (let i = 1; i < streamArray.length; i++) {
-      if (!streamArray[i]) {
-        throw new Error(`Invalid stream at position ${i}`);
-      }
-      current = current.pipe(streamArray[i]);
+  for (let i = 1; i < streamArray.length; i++) {
+    if (!streamArray[i]) {
+      throw new Error(`Invalid stream at position ${i}`);
     }
-
-    current.on('error', callback);
-    current.on('end', () => callback());
-    return current;
-  } catch (error) {
-    callback(error as Error);
-    return current;
+    current = current.pipe(streamArray[i] as any);
   }
+
+  current.on('error', callback);
+  current.on('end', () => callback());
+
+  return current;
 }
 
-function finished(stream: IStream, callback: (error?: Error) => void): void {
-  if (!stream || (!stream.readable && !stream.writable)) {
-    callback(new Error('Invalid stream'));
-    return;
-  }
-
+export function finished(stream: BaseStream, callback: (error?: Error) => void): void {
   let ended = false;
 
   function onend() {
@@ -288,6 +207,7 @@ function finished(stream: IStream, callback: (error?: Error) => void): void {
   stream.on('finish', onend);
 }
 
+// Export a frozen API to prevent modifications
 const streamAPI = Object.freeze({
   Stream,
   Readable,
@@ -298,5 +218,4 @@ const streamAPI = Object.freeze({
 });
 
 export default streamAPI;
-export { Stream, Readable, Writable, Transform, pipeline, finished };
 export type { IStream, StreamOptions };
