@@ -19,6 +19,9 @@ if (typeof window !== 'undefined') {
 
 import { Client } from '@replit/object-storage';
 
+const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
+const client = new Client({ bucketId: REPLIT_BUCKET_ID });
+
 // Environment configuration interface
 interface EnvConfig {
   NODE_ENV: string;
@@ -132,17 +135,15 @@ try {
 // Object storage implementation
 export const objectStorage: ObjectStorage = {
   getSignedUrl: async (objectPath: string): Promise<string> => {
-    try {
-      const response = await fetch(`${config.api.baseUrl}/api/storage/sign?path=${encodeURIComponent(objectPath)}`);
-      if (!response.ok) {
-        throw new Error('Failed to get signed URL');
+    if (config.isDev) {
+      try {
+        return await client.getSignedUrl(objectPath);
+      } catch (error) {
+        console.error('[ObjectStorage] Error getting signed URL:', error);
+        return `/${objectPath}`; // Fallback to local path
       }
-      const data = await response.json();
-      return data.url;
-    } catch (error) {
-      console.error('[ObjectStorage] Error getting signed URL:', error);
-      throw error;
     }
+    return `/${objectPath}`;
   }
 };
 

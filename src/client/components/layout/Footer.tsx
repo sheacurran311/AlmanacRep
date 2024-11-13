@@ -55,8 +55,8 @@ const Footer: React.FC = () => {
                 onError={(e) => {
                   console.error('Error loading logo:', e);
                   const target = e.currentTarget as HTMLImageElement;
-                  target.src = '/placeholder-logo.png';
-                  target.onerror = null;
+                  target.src = '/almanaclogo.png'; // Use direct path as fallback
+                  target.onerror = null; // Prevent infinite error loop
                 }}
               />
             </Box>

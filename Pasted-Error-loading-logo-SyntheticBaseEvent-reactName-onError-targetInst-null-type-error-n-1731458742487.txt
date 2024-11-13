@@ -1,0 +1,141 @@
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+bubbles: false
+cancelable: false
+currentTarget: null
+defaultPrevented: false
+eventPhase: 2
+isDefaultPrevented: ƒ functionThatReturnsFalse()
+isPropagationStopped: ƒ functionThatReturnsFalse()
+isTrusted: true
+nativeEvent: Event
+target: HTMLImageElement
+timeStamp: 20252.599999904633
+type: "error"
+_reactName: "onError"
+_targetInst: null
+[[Prototype]]: Object
+
+at t.value (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5000/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5000/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5000/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5000/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}
+
+Error loading logo: 
+SyntheticBaseEvent {_reactName: "onError", _targetInst: null, type: "error", nativeEvent: Event, target: HTMLImageElement, …}

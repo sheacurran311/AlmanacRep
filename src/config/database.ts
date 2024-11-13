@@ -16,7 +16,10 @@ const poolConfig: PoolConfig = {
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   keepAlive: true,
-  keepAliveInitialDelayMillis: 10000
+  keepAliveInitialDelayMillis: 10000,
+  // Add retry parameters
+  connectionRetryDelay: 1000,
+  maxConnectionRetries: 5
 };
 
 export const pool = new Pool(poolConfig);
@@ -41,6 +44,7 @@ export class DatabaseManager {
     maxRetries: 5,
     initialDelay: 1000,
     maxDelay: 30000,
+    factor: 2,
     onRetry: (attempt, error) => {
       console.log(`[${new Date().toISOString()}] [DATABASE] Retry attempt ${attempt}:`, {
         error: error.message,
@@ -49,12 +53,26 @@ export class DatabaseManager {
     }
   });
 
+  static async getConnection() {
+    return this.retryManager.execute(async () => {
+      try {
+        const client = await pool.connect();
+        return client;
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] [DATABASE] Connection error:`, {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        throw error;
+      }
+    });
+  }
+
   static async query<T extends QueryResultRow = any>(
     text: string,
     params: any[] = []
   ): Promise<QueryResult<T>> {
     return this.retryManager.execute(async () => {
-      const client = await pool.connect();
+      const client = await this.getConnection();
       try {
         const result = await client.query<T>(text, params);
         return result;
@@ -64,6 +82,23 @@ export class DatabaseManager {
           query: text,
           params
         });
+        throw error;
+      } finally {
+        client.release();
+      }
+    });
+  }
+
+  static async transaction<T>(callback: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+    return this.retryManager.execute(async () => {
+      const client = await this.getConnection();
+      try {
+        await client.query('BEGIN');
+        const result = await callback(client);
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK');
         throw error;
       } finally {
         client.release();
