@@ -11,65 +11,60 @@ declare global {
   var util: any;
 }
 
+// Create base class for all stream types
+class BaseStream extends EventEmitter {
+  protected options: any;
+  
+  constructor(options: any = {}) {
+    super();
+    this.options = options;
+  }
+}
+
 // Initialize polyfills with proper prototype chain
 const initializePolyfills = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    // Create and validate EventEmitter
+    // Initialize EventEmitter first
     const eventEmitter = new EventEmitter();
     if (!eventEmitter || typeof eventEmitter.emit !== 'function') {
-      throw new Error('EventEmitter not properly initialized');
+      throw new Error('EventEmitter initialization failed');
     }
 
-    // Create stream classes with proper prototype chain
-    class StreamBase extends EventEmitter {
-      protected options: any;
-      
-      constructor(options: any = {}) {
-        super();
-        this.options = options;
-      }
+    // Create stream implementations with proper inheritance
+    const createStreamClass = (name: string, Base = BaseStream) => {
+      return class extends Base {
+        constructor(options?: any) {
+          super(options);
+          // Set proper name for debugging
+          Object.defineProperty(this, 'name', {
+            value: name,
+            configurable: true,
+            writable: false
+          });
+        }
+      };
+    };
 
-      pipe<T extends NodeJS.WritableStream>(destination: T): T {
-        return streamAPI.Stream.prototype.pipe.call(this, destination);
-      }
-    }
+    // Initialize stream module with proper prototype chain
+    const StreamImpl = createStreamClass('Stream');
+    const ReadableImpl = createStreamClass('Readable', StreamImpl);
+    const WritableImpl = createStreamClass('Writable', StreamImpl);
+    const TransformImpl = createStreamClass('Transform', StreamImpl);
 
-    // Initialize stream implementations
+    // Create stream module with proper implementations
     const streamModule = {
-      Stream: class extends StreamBase {},
-      Readable: class extends StreamBase {
-        constructor(options?: any) {
-          super(options);
-          Object.setPrototypeOf(this, Readable.prototype);
-        }
-      },
-      Writable: class extends StreamBase {
-        constructor(options?: any) {
-          super(options);
-          Object.setPrototypeOf(this, Writable.prototype);
-        }
-      },
-      Transform: class extends StreamBase {
-        constructor(options?: any) {
-          super(options);
-          Object.setPrototypeOf(this, Transform.prototype);
-        }
-      },
+      Stream: StreamImpl,
+      Readable: ReadableImpl,
+      Writable: WritableImpl,
+      Transform: TransformImpl,
       pipeline: streamAPI.pipeline,
       finished: streamAPI.finished,
       EventEmitter
     };
 
-    // Ensure proper prototype chain for stream classes
-    [streamModule.Readable, streamModule.Writable, streamModule.Transform].forEach(Cls => {
-      if (Cls?.prototype) {
-        Object.setPrototypeOf(Cls.prototype, streamModule.Stream.prototype);
-      }
-    });
-
-    // Define non-enumerable globals with proper descriptors
+    // Define non-enumerable globals
     const defineGlobal = (key: string, value: any) => {
       if (!globalThis[key]) {
         Object.defineProperty(globalThis, key, {
@@ -81,11 +76,11 @@ const initializePolyfills = () => {
       }
     };
 
-    // Define stream and util globals
+    // Define stream and util globals with proper prototype chains
     defineGlobal('stream', streamModule);
     defineGlobal('util', utilAPI);
 
-    // Initialize process if needed
+    // Ensure process is available
     if (!globalThis.process) {
       globalThis.process = window.process;
     }
@@ -94,20 +89,19 @@ const initializePolyfills = () => {
   } catch (error) {
     console.error('[Polyfills] Error initializing polyfills:', error);
     
-    // Provide basic fallback implementation
-    if (!globalThis.stream || !globalThis.util) {
-      console.warn('[Polyfills] Using fallback implementation');
-      const fallbackStream = {
-        ...streamAPI,
-        Stream: class extends EventEmitter {},
-        Readable: class extends EventEmitter {},
-        Writable: class extends EventEmitter {},
-        Transform: class extends EventEmitter {}
-      };
-      
-      if (!globalThis.stream) globalThis.stream = fallbackStream;
-      if (!globalThis.util) globalThis.util = utilAPI;
-    }
+    // Provide minimal fallback implementation
+    const fallbackStream = {
+      ...streamAPI,
+      Stream: class extends EventEmitter {
+        constructor() {
+          super();
+          console.warn('[Polyfills] Using fallback Stream implementation');
+        }
+      }
+    };
+    
+    if (!globalThis.stream) globalThis.stream = fallbackStream;
+    if (!globalThis.util) globalThis.util = utilAPI;
   }
 };
 
