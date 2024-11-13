@@ -25,6 +25,8 @@ const App: React.FC = () => {
     retryCount: 0
   });
 
+  const [globalError, setGlobalError] = useState<string | null>(null);
+
   const checkConnection = async () => {
     try {
       const response = await fetch(`${getApiUrl()}/api/health`);
@@ -51,13 +53,29 @@ const App: React.FC = () => {
     let mounted = true;
     let retryTimeout: NodeJS.Timeout;
 
+    // Global unhandled promise rejection handler
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      event.preventDefault();
+      console.error('Unhandled promise rejection:', event.reason);
+      setGlobalError(event.reason?.message || 'An unexpected error occurred');
+    };
+
+    // Global error handler
+    const handleError = (event: ErrorEvent) => {
+      event.preventDefault();
+      console.error('Global error:', event.error);
+      setGlobalError(event.error?.message || 'An unexpected error occurred');
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
+
     const setupConnectionMonitoring = async () => {
       if (!mounted) return;
 
       const isConnected = await checkConnection();
 
       if (!isConnected && mounted && connection.retryCount < 5) {
-        // Exponential backoff for retries
         const delay = Math.min(1000 * Math.pow(2, connection.retryCount), 30000);
         retryTimeout = setTimeout(setupConnectionMonitoring, delay);
       }
@@ -93,6 +111,8 @@ const App: React.FC = () => {
       clearTimeout(retryTimeout);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
     };
   }, [connection.retryCount]);
 
@@ -102,6 +122,11 @@ const App: React.FC = () => {
       lastError: null,
       retryCount: 0
     });
+    setGlobalError(null);
+  };
+
+  const handleCloseGlobalError = () => {
+    setGlobalError(null);
   };
 
   return (
@@ -153,6 +178,20 @@ const App: React.FC = () => {
                     {connection.status === 'connecting' 
                       ? 'Connecting to server...' 
                       : connection.lastError || 'Connection lost'}
+                  </Alert>
+                </Snackbar>
+                <Snackbar
+                  open={!!globalError}
+                  autoHideDuration={6000}
+                  onClose={handleCloseGlobalError}
+                  anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                >
+                  <Alert 
+                    onClose={handleCloseGlobalError}
+                    severity="error"
+                    variant="filled"
+                  >
+                    {globalError}
                   </Alert>
                 </Snackbar>
               </Box>
