@@ -56,6 +56,12 @@ interface EnvConfig {
     maxFileSize: number;
     allowedTypes: string[];
     cacheDuration: number;
+    retryAttempts: number;
+    uploadConfig: {
+      chunkSize: number;
+      concurrency: number;
+      timeout: number;
+    };
   };
   logging: {
     level: LogLevel;
@@ -65,12 +71,24 @@ interface EnvConfig {
     file: boolean;
     maxFiles?: number;
     maxSize?: number;
+    remoteLogging?: {
+      enabled: boolean;
+      endpoint?: string;
+      batchSize?: number;
+      flushInterval?: number;
+    };
   };
   cache: {
     enabled: boolean;
     ttl: number;
     maxSize: number;
     strategy: 'lru' | 'fifo';
+    redis?: {
+      enabled: boolean;
+      host?: string;
+      port?: number;
+      password?: string;
+    };
   };
   security: {
     cors: {
@@ -78,6 +96,7 @@ interface EnvConfig {
       origins: string[];
       methods: string[];
       credentials: boolean;
+      maxAge?: number;
     };
     rateLimit: {
       enabled: boolean;
@@ -88,6 +107,16 @@ interface EnvConfig {
     csrf: {
       enabled: boolean;
       ignoreMethods: string[];
+      cookieOptions?: {
+        secure: boolean;
+        sameSite: 'strict' | 'lax' | 'none';
+      };
+    };
+    headers: {
+      hsts: boolean;
+      noSniff: boolean;
+      xssProtection: boolean;
+      frameOptions: 'DENY' | 'SAMEORIGIN' | 'ALLOW-FROM';
     };
   };
   features: {
@@ -95,6 +124,26 @@ interface EnvConfig {
     analytics: boolean;
     websockets: boolean;
     objectStorage: boolean;
+    caching: boolean;
+    compression: boolean;
+    monitoring: boolean;
+  };
+  monitoring: {
+    enabled: boolean;
+    metrics: {
+      collection: boolean;
+      endpoint?: string;
+      interval: number;
+    };
+    tracing: {
+      enabled: boolean;
+      samplingRate: number;
+    };
+    healthCheck: {
+      enabled: boolean;
+      interval: number;
+      timeout: number;
+    };
   };
 }
 
@@ -116,7 +165,6 @@ const initializeConfig = (): EnvConfig => {
   const domain = getReplitDomain();
   const isLocalhost = domain === '0.0.0.0';
 
-  // Environment-specific port configuration
   const frontendPort = parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
   const apiPort = parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
   const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000');
@@ -161,7 +209,13 @@ const initializeConfig = (): EnvConfig => {
       baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || '',
       maxFileSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
       allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
-      cacheDuration: isDev ? 0 : isProduction ? 3600 : 1800
+      cacheDuration: isDev ? 0 : isProduction ? 3600 : 1800,
+      retryAttempts: isDev ? 3 : 5,
+      uploadConfig: {
+        chunkSize: isDev ? 5 * 1024 * 1024 : 1 * 1024 * 1024,
+        concurrency: isDev ? 3 : 5,
+        timeout: isDev ? 30000 : 60000
+      }
     },
     logging: {
       level: isDev ? 'debug' : isProduction ? 'info' : 'debug',
@@ -170,20 +224,33 @@ const initializeConfig = (): EnvConfig => {
       console: isDev || isStaging,
       file: !isDev,
       maxFiles: isDev ? 5 : 30,
-      maxSize: isDev ? 10 * 1024 * 1024 : 100 * 1024 * 1024
+      maxSize: isDev ? 10 * 1024 * 1024 : 100 * 1024 * 1024,
+      remoteLogging: isProduction ? {
+        enabled: true,
+        endpoint: import.meta.env.VITE_REMOTE_LOGGING_URL,
+        batchSize: 100,
+        flushInterval: 5000
+      } : undefined
     },
     cache: {
       enabled: !isDev,
       ttl: isDev ? 300 : isProduction ? 3600 : 1800,
       maxSize: isDev ? 100 : isProduction ? 1000 : 500,
-      strategy: isDev ? 'fifo' : 'lru'
+      strategy: isDev ? 'fifo' : 'lru',
+      redis: isProduction ? {
+        enabled: true,
+        host: import.meta.env.VITE_REDIS_HOST,
+        port: parseInt(import.meta.env.VITE_REDIS_PORT || '6379'),
+        password: import.meta.env.VITE_REDIS_PASSWORD
+      } : undefined
     },
     security: {
       cors: {
         enabled: true,
         origins: isDev ? ['*'] : [domain],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-        credentials: !isDev
+        credentials: !isDev,
+        maxAge: isProduction ? 86400 : 3600
       },
       rateLimit: {
         enabled: !isDev,
@@ -193,18 +260,47 @@ const initializeConfig = (): EnvConfig => {
       },
       csrf: {
         enabled: !isDev,
-        ignoreMethods: ['GET', 'HEAD', 'OPTIONS']
+        ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
+        cookieOptions: isProduction ? {
+          secure: true,
+          sameSite: 'strict'
+        } : undefined
+      },
+      headers: {
+        hsts: isProduction,
+        noSniff: true,
+        xssProtection: true,
+        frameOptions: isProduction ? 'DENY' : 'SAMEORIGIN'
       }
     },
     features: {
       multitenant: true,
       analytics: !isDev,
       websockets: true,
-      objectStorage: true
+      objectStorage: true,
+      caching: !isDev,
+      compression: !isDev,
+      monitoring: !isDev
+    },
+    monitoring: {
+      enabled: !isDev,
+      metrics: {
+        collection: !isDev,
+        endpoint: import.meta.env.VITE_METRICS_ENDPOINT,
+        interval: isDev ? 30000 : 60000
+      },
+      tracing: {
+        enabled: !isDev,
+        samplingRate: isDev ? 1 : isProduction ? 0.1 : 0.5
+      },
+      healthCheck: {
+        enabled: true,
+        interval: isDev ? 30000 : 60000,
+        timeout: 5000
+      }
     }
   };
 
-  // Set API base URL based on environment
   config.api.baseUrl = isLocalhost
     ? `${config.api.protocol}://0.0.0.0:${config.api.port}`
     : `${config.api.protocol}://${config.host}`;
@@ -232,7 +328,6 @@ try {
   throw error;
 }
 
-// Utility functions
 export const objectStorage = {
   getSignedUrl: async (objectPath: string): Promise<string> => {
     if (config.isDev) {
@@ -247,7 +342,6 @@ export const objectStorage = {
   }
 };
 
-// Exports
 export const getSignedUrl = objectStorage.getSignedUrl;
 export const isDevelopment = config.isDev;
 export const isProduction = config.isProduction;
@@ -260,6 +354,7 @@ export const getCacheConfig = () => config.cache;
 export const getLoggingConfig = () => config.logging;
 export const getSecurityConfig = () => config.security;
 export const getFeaturesConfig = () => config.features;
+export const getMonitoringConfig = () => config.monitoring;
 
 export const stream = streamAPI;
 export const util = utilAPI;

@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 
-// Stream interfaces
 interface StreamOptions {
   highWaterMark?: number;
   objectMode?: boolean;
@@ -207,7 +206,6 @@ export function finished(stream: BaseStream, callback: (error?: Error) => void):
   stream.on('finish', onend);
 }
 
-// Export a frozen API to prevent modifications
 const streamAPI = Object.freeze({
   Stream,
   Readable,
