@@ -23,6 +23,10 @@ args = "Build and Start"
 task = "workflow.run"
 args = "Frontend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Bundle Analysis"
+
 [[workflows.workflow]]
 name = "Server"
 author = "agent"
@@ -67,6 +71,20 @@ task = "packager.installForAll"
 task = "shell.exec"
 args = "cd src/client && NODE_ENV=development VITE_DEV_SERVER_PORT=5173 VITE_API_SERVER_PORT=3001 npx vite"
 waitForPort = 5173
+
+[[workflows.workflow]]
+name = "Bundle Analysis"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run analyze"
 
 [deployment]
 run = ["sh", "-c", "NODE_ENV=development PORT=80 INTERNAL_PORT=3001 PGPORT=5432 node --import tsx src/server/server.ts"]
