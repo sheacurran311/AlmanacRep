@@ -1,3 +1,22 @@
+// Initialize process object for browser environment
+if (typeof window !== 'undefined') {
+  const customProcess = {
+    env: {
+      NODE_ENV: import.meta.env.MODE || 'development',
+      VITE_DEV_SERVER_PORT: import.meta.env.VITE_DEV_SERVER_PORT,
+      VITE_API_SERVER_PORT: import.meta.env.VITE_API_SERVER_PORT,
+      VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+      VITE_WS_PROTOCOL: import.meta.env.VITE_WS_PROTOCOL,
+      VITE_WS_HOST: import.meta.env.VITE_WS_HOST,
+      VITE_WS_PORT: import.meta.env.VITE_WS_PORT,
+      VITE_OBJECT_STORAGE_URL: import.meta.env.VITE_OBJECT_STORAGE_URL
+    },
+    title: 'browser'
+  } as unknown as Process & NodeJS.Process;
+
+  window.process = customProcess;
+}
+
 import { Client } from '@replit/object-storage';
 
 // Environment configuration interface
@@ -40,16 +59,10 @@ export interface ObjectStorage {
 
 // Get domain configuration
 export const getReplitDomain = (): string => {
-  try {
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      return hostname;
-    }
-    return process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.repl.co` : '0.0.0.0';
-  } catch (error) {
-    console.error('[Environment] Error getting domain:', error);
-    return '0.0.0.0';
+  if (typeof window !== 'undefined') {
+    return window.location.hostname;
   }
+  return '0.0.0.0';
 };
 
 // Initialize environment configuration
@@ -114,28 +127,6 @@ try {
 } catch (error) {
   console.error('[Environment] Critical initialization error:', error);
   throw error;
-}
-
-// Initialize process.env in browser environment
-if (typeof window !== 'undefined') {
-  const processEnv: ProcessEnv = {
-    NODE_ENV: config.NODE_ENV,
-    VITE_DEV_SERVER_PORT: String(config.ports.frontend),
-    VITE_API_SERVER_PORT: String(config.ports.api),
-    VITE_API_BASE_URL: config.api.baseUrl,
-    VITE_WS_PROTOCOL: config.ws.protocol,
-    VITE_WS_HOST: config.host,
-    VITE_WS_PORT: String(config.ws.port)
-  };
-
-  // Create process object with correct type
-  const customProcess: Process & NodeJS.Process = {
-    ...process,
-    env: processEnv,
-    title: 'browser'
-  };
-
-  window.process = customProcess;
 }
 
 // Object storage implementation

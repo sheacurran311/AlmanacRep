@@ -1,5 +1,3 @@
-import { setTimeout } from 'timers/promises';
-
 export interface RetryConfig {
   maxRetries?: number;
   initialDelay?: number;
@@ -53,7 +51,8 @@ export class RetryManager {
           this.onRetry(attempt + 1, lastError);
         }
         
-        await setTimeout(delay);
+        // Use browser-compatible setTimeout with Promise
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
