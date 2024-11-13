@@ -1,3 +1,11 @@
+import { Client } from '@replit/object-storage';
+import { defineConfig } from 'vite';
+
+// Object storage interface
+export interface ObjectStorage {
+  getSignedUrl: (objectPath: string) => Promise<string>;
+}
+
 // Enhanced type declarations for Process interface
 interface CustomProcess extends Partial<NodeJS.Process> {
   env: Record<string, string>;
@@ -34,20 +42,21 @@ interface EnvConfig {
   };
   objectStorage: {
     baseUrl: string;
+    bucketId: string;
   };
 }
 
-// Object storage interface
-export interface ObjectStorage {
-  getSignedUrl: (objectPath: string) => Promise<string>;
-}
+const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
+
+export const objectStorage = new Client({
+  bucketId: REPLIT_BUCKET_ID
+});
 
 // Get domain configuration
 export const getReplitDomain = (): string => {
   try {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
-      // Always return the actual hostname
       return hostname;
     }
     return process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.repl.co` : '0.0.0.0';
@@ -91,11 +100,11 @@ const initializeConfig = (): EnvConfig => {
       baseUrl: ''
     },
     objectStorage: {
-      baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || ''
+      baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || '',
+      bucketId: REPLIT_BUCKET_ID
     }
   };
 
-  // Set API base URL correctly for development and production
   config.api.baseUrl = isLocalhost
     ? `${config.api.protocol}://${config.host}:${config.api.port}`
     : `${config.api.protocol}://${config.host}`;
@@ -122,25 +131,16 @@ try {
   throw error;
 }
 
-// Object storage implementation with local fallback
-export const objectStorage: ObjectStorage = {
-  getSignedUrl: async (objectPath: string): Promise<string> => {
-    // For development, return local path
+export const getSignedUrl = async (objectPath: string): Promise<string> => {
+  try {
     if (config.isDev) {
-      return `/${objectPath}`;
+      const signedUrl = await objectStorage.getSignedUrl(objectPath);
+      return signedUrl;
     }
-    // For production, implement proper signed URL logic
-    try {
-      const response = await fetch(`${config.api.baseUrl}/api/storage/sign?path=${encodeURIComponent(objectPath)}`);
-      if (!response.ok) {
-        throw new Error('Failed to get signed URL');
-      }
-      const data = await response.json();
-      return data.url;
-    } catch (error) {
-      console.error('[ObjectStorage] Error getting signed URL:', error);
-      return `/${objectPath}`;  // Fallback to local path
-    }
+    return `/${objectPath}`;
+  } catch (error) {
+    console.error('[ObjectStorage] Error getting signed URL:', error);
+    return `/${objectPath}`;
   }
 };
 
@@ -161,6 +161,7 @@ if (typeof window !== 'undefined') {
       VITE_API_SERVER_PORT: String(config.ports.api)
     };
 
+    // Check if window.process exists and add or update the env
     if (!window.process) {
       (window as any).process = {
         env: processEnv,
@@ -183,3 +184,13 @@ export const getApiUrl = () => config.api.baseUrl;
 
 // Export configuration
 export const env = config;
+
+// Define Vite configuration
+export default defineConfig({
+  define: {
+    'process.env': JSON.stringify(process.env)
+  },
+  server: {
+    port: 5173
+  }
+});

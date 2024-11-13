@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppBar,
   Box,
@@ -13,6 +13,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { getSignedUrl } from '../../utils/setupEnv';
 
 const pages = [
   { title: 'Home', path: '/' },
@@ -23,8 +24,22 @@ const pages = [
 
 const Header: React.FC = () => {
   const [anchorElNav, setAnchorElNav] = useState<null | HTMLElement>(null);
+  const [logoUrl, setLogoUrl] = useState('/almanaclogo.png');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        const url = await getSignedUrl('almanaclogo.png');
+        setLogoUrl(url);
+      } catch (error) {
+        console.error('Error loading logo:', error);
+        // Keep the default local path
+      }
+    };
+    loadLogo();
+  }, []);
 
   const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElNav(event.currentTarget);
@@ -41,7 +56,7 @@ const Header: React.FC = () => {
 
   const renderLogo = () => (
     <img
-      src="/almanaclogo.png"
+      src={logoUrl}
       alt="Almanac Labs"
       style={{
         height: '40px',
