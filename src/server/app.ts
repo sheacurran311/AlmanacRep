@@ -8,7 +8,8 @@ import morgan from 'morgan';
 import http from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { IncomingMessage } from 'http';
-import authRoutes from './routes/auth.js';
+import authRoutes from '../routes/auth.js';
+import healthRoutes from '../routes/healthRoutes.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import nftRoutes from './routes/nft.js';
 import arRoutes from './routes/ar.js';
@@ -256,7 +257,8 @@ server.on('upgrade', (request: IncomingMessage, socket: net.Socket, head: Buffer
   }
 });
 
-// API Routes
+// API Routes with health check routes added first
+app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/nft', nftRoutes);
@@ -265,20 +267,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/customers', customerRoutes);
 
-// Enhanced health check endpoint
-app.get('/health', (_req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    websocketClients: wss.clients.size,
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV,
-    serverPort: process.env.INTERNAL_PORT || '3001',
-    externalPort: process.env.PORT || '80'
-  });
-});
-
-// Static files and routing handler
+// Static files and routing handler should come after API routes
 if (process.env.NODE_ENV === 'development') {
   app.get('*', (_req, res) => {
     res.redirect(`http://localhost:${process.env.VITE_DEV_PORT || 5173}`);

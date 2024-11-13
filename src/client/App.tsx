@@ -9,7 +9,7 @@ import theme from './theme';
 import { AuthProvider } from './hooks/useAuth';
 import { Header, Footer } from './components/layout';
 import ErrorBoundary from './components/ErrorBoundary';
-import { getApiUrl } from './utils/setupEnv';
+import { healthCheckService, type HealthStatus } from './services/healthCheck';
 import './styles/globals.css';
 
 interface ConnectionState {
@@ -17,9 +17,6 @@ interface ConnectionState {
   lastError: string | null;
   retryCount: number;
 }
-
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 1000;
 
 const App: React.FC = () => {
   const [connection, setConnection] = useState<ConnectionState>({
@@ -30,57 +27,20 @@ const App: React.FC = () => {
 
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  const checkConnection = useCallback(async () => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(`${getApiUrl()}/api/health`, {
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        setConnection({
-          status: 'connected',
-          lastError: null,
-          retryCount: 0
-        });
-        return true;
-      }
-      throw new Error('Health check failed');
-    } catch (error) {
-      if (error instanceof Error) {
-        const errorMessage = error.name === 'AbortError' 
-          ? 'Connection timeout' 
-          : error.message;
-        
-        setConnection(prev => ({
-          status: 'disconnected',
-          lastError: errorMessage,
-          retryCount: prev.retryCount + 1
-        }));
-      }
-      return false;
-    }
+  const handleHealthStatusChange = useCallback((status: HealthStatus) => {
+    setConnection(prev => ({
+      status: status.status === 'healthy' ? 'connected' : 'disconnected',
+      lastError: status.error || null,
+      retryCount: prev.retryCount + (status.status === 'healthy' ? 0 : 1)
+    }));
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    let retryTimeout: NodeJS.Timeout;
-
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       event.preventDefault();
       console.error('Unhandled promise rejection:', event.reason);
       const errorMessage = event.reason?.message || 'An unexpected error occurred';
       setGlobalError(errorMessage);
-
-      // If it's a connection-related error, trigger a connection check
-      if (errorMessage.toLowerCase().includes('network') || 
-          errorMessage.toLowerCase().includes('connection')) {
-        checkConnection();
-      }
     };
 
     const handleError = (event: ErrorEvent) => {
@@ -89,53 +49,18 @@ const App: React.FC = () => {
       setGlobalError(event.error?.message || 'An unexpected error occurred');
     };
 
-    const setupConnectionMonitoring = async () => {
-      if (!mounted) return;
-
-      const isConnected = await checkConnection();
-
-      if (!isConnected && mounted && connection.retryCount < MAX_RETRIES) {
-        const delay = Math.min(RETRY_DELAY * Math.pow(2, connection.retryCount), 30000);
-        retryTimeout = setTimeout(setupConnectionMonitoring, delay);
-      }
-    };
-
-    const handleOnline = () => {
-      if (mounted) {
-        setConnection(prev => ({
-          ...prev,
-          status: 'connecting'
-        }));
-        setupConnectionMonitoring();
-      }
-    };
-
-    const handleOffline = () => {
-      if (mounted) {
-        setConnection(prev => ({
-          ...prev,
-          status: 'disconnected',
-          lastError: 'Internet connection lost'
-        }));
-      }
-    };
-
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('error', handleError);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
 
-    setupConnectionMonitoring();
+    // Start health monitoring
+    healthCheckService.startMonitoring(handleHealthStatusChange);
 
     return () => {
-      mounted = false;
-      clearTimeout(retryTimeout);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       window.removeEventListener('error', handleError);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      healthCheckService.stopMonitoring();
     };
-  }, [connection.retryCount, checkConnection]);
+  }, [handleHealthStatusChange]);
 
   const handleErrorBoundaryReset = () => {
     setConnection({
