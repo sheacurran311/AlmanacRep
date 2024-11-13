@@ -1,5 +1,6 @@
 import { Client } from '@replit/object-storage';
-import StreamModule from './streamPolyfill';
+import streamAPI, { Stream, Readable, Writable, Transform } from './streamPolyfill';
+import utilAPI from './utilPolyfill';
 
 const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
 
@@ -9,10 +10,13 @@ interface ExtendedClient extends Client {
 
 const client = new Client({ bucketId: REPLIT_BUCKET_ID }) as ExtendedClient;
 
+// Environment specific configuration interface
 interface EnvConfig {
   NODE_ENV: string;
   isDev: boolean;
   isProduction: boolean;
+  isStaging: boolean;
+  isTest: boolean;
   host: string;
   ports: {
     frontend: number;
@@ -35,9 +39,22 @@ interface EnvConfig {
     host: string;
     port: number;
     baseUrl: string;
+    timeout: number;
+    retryAttempts: number;
   };
   objectStorage: {
     baseUrl: string;
+    maxFileSize: number;
+    allowedTypes: string[];
+  };
+  logging: {
+    level: string;
+    format: string;
+    timestamp: boolean;
+  };
+  cache: {
+    enabled: boolean;
+    ttl: number;
   };
 }
 
@@ -50,19 +67,26 @@ const getReplitDomain = (): string => {
 };
 
 const initializeConfig = (): EnvConfig => {
-  const isDev = import.meta.env.MODE === 'development';
+  const mode = import.meta.env.MODE || 'development';
+  const isDev = mode === 'development';
+  const isProduction = mode === 'production';
+  const isStaging = mode === 'staging';
+  const isTest = mode === 'test';
+  
   const domain = getReplitDomain();
   const isLocalhost = domain === '0.0.0.0';
 
-  // Get ports from environment or use defaults
+  // Environment-specific port configuration
   const frontendPort = parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
   const apiPort = parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
   const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000');
 
   const config: EnvConfig = {
-    NODE_ENV: import.meta.env.MODE || 'development',
+    NODE_ENV: mode,
     isDev,
-    isProduction: !isDev,
+    isProduction,
+    isStaging,
+    isTest,
     host: domain,
     ports: {
       frontend: isDev ? frontendPort : externalPort,
@@ -74,20 +98,33 @@ const initializeConfig = (): EnvConfig => {
       host: domain,
       port: isLocalhost ? apiPort : 443,
       reconnect: {
-        maxRetries: 100,
-        minDelay: 1000,
-        maxDelay: 30000,
-        timeout: 30000
+        maxRetries: isDev ? 100 : 5,
+        minDelay: isDev ? 1000 : 5000,
+        maxDelay: isDev ? 30000 : 60000,
+        timeout: isDev ? 30000 : 60000
       }
     },
     api: {
       protocol: isLocalhost ? 'http' : 'https',
       host: isLocalhost ? '0.0.0.0' : domain,
       port: isLocalhost ? apiPort : 443,
-      baseUrl: ''
+      baseUrl: '',
+      timeout: isDev ? 30000 : 60000,
+      retryAttempts: isDev ? 3 : 5
     },
     objectStorage: {
-      baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || ''
+      baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || '',
+      maxFileSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024, // 10MB in dev, 5MB in prod
+      allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+    },
+    logging: {
+      level: isDev ? 'debug' : 'info',
+      format: isDev ? 'detailed' : 'json',
+      timestamp: true
+    },
+    cache: {
+      enabled: !isDev,
+      ttl: isDev ? 300 : 3600 // 5 minutes in dev, 1 hour in prod
     }
   };
 
@@ -119,6 +156,7 @@ try {
   throw error;
 }
 
+// Export environment utilities and polyfills
 export const objectStorage = {
   getSignedUrl: async (objectPath: string): Promise<string> => {
     if (config.isDev) {
@@ -133,10 +171,20 @@ export const objectStorage = {
   }
 };
 
+// Export environment-specific configurations and utilities
 export const getSignedUrl = objectStorage.getSignedUrl;
 export const isDevelopment = config.isDev;
 export const isProduction = config.isProduction;
-export const getWebSocketUrl = () => `${config.ws.protocol}://${config.ws.host}${config.ws.port !== 443 ? `:${config.ws.port}` : ''}`;
+export const isStaging = config.isStaging;
+export const isTest = config.isTest;
+export const getWebSocketUrl = () => 
+  `${config.ws.protocol}://${config.ws.host}${config.ws.port !== 443 ? `:${config.ws.port}` : ''}`;
 export const getApiUrl = () => config.api.baseUrl;
-export const stream = StreamModule;
+export const getCacheConfig = () => config.cache;
+export const getLoggingConfig = () => config.logging;
+
+// Export polyfills
+export const stream = streamAPI;
+export const util = utilAPI;
+export { Stream, Readable, Writable, Transform };
 export const env = config;

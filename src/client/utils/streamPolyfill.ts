@@ -1,14 +1,14 @@
 import { EventEmitter } from 'events';
 
-// Define interfaces for type safety
 interface StreamOptions {
   highWaterMark?: number;
   objectMode?: boolean;
 }
 
-// Base Stream class implementation
-class Stream extends EventEmitter {
+class BaseStream extends EventEmitter {
   protected _options: StreamOptions;
+  readable: boolean;
+  writable: boolean;
 
   constructor(options: StreamOptions = {}) {
     super();
@@ -17,12 +17,41 @@ class Stream extends EventEmitter {
       objectMode: false,
       ...options
     };
+    this.readable = false;
+    this.writable = false;
   }
 
-  pipe<T extends Stream>(dest: T): T {
-    this.on('data', (chunk: any) => dest.write(chunk));
-    this.on('end', () => dest.end());
+  pipe<T extends NodeJS.WritableStream>(dest: T): T {
+    if (!dest || typeof dest.write !== 'function' || typeof dest.end !== 'function') {
+      throw new Error('Invalid destination stream');
+    }
+    
+    this.on('data', (chunk: any) => {
+      const canContinue = dest.write(chunk);
+      if (!canContinue) {
+        this.pause();
+      }
+    });
+
+    dest.on('drain', () => {
+      this.resume();
+    });
+
+    this.on('end', () => {
+      dest.end();
+    });
+
     return dest;
+  }
+
+  pause(): this {
+    this.emit('pause');
+    return this;
+  }
+
+  resume(): this {
+    this.emit('resume');
+    return this;
   }
 
   write(chunk: any): boolean {
@@ -35,13 +64,13 @@ class Stream extends EventEmitter {
   }
 }
 
-// Readable stream implementation
-class Readable extends Stream {
-  readonly readable: boolean;
+class Stream extends BaseStream {}
 
+class Readable extends BaseStream {
   constructor(options: StreamOptions = {}) {
     super(options);
     this.readable = true;
+    this.writable = false;
   }
 
   read(): any {
@@ -49,21 +78,15 @@ class Readable extends Stream {
   }
 }
 
-// Writable stream implementation
-class Writable extends Stream {
-  readonly writable: boolean;
-
+class Writable extends BaseStream {
   constructor(options: StreamOptions = {}) {
     super(options);
+    this.readable = false;
     this.writable = true;
   }
 }
 
-// Transform stream implementation
-class Transform extends Stream {
-  readonly readable: boolean;
-  readonly writable: boolean;
-
+class Transform extends BaseStream {
   constructor(options: StreamOptions = {}) {
     super(options);
     this.readable = true;
@@ -71,26 +94,46 @@ class Transform extends Stream {
   }
 }
 
-// Create frozen stream API
 const streamAPI = Object.freeze({
   Stream,
   Readable,
   Writable,
   Transform,
   pipeline(...args: any[]): Stream {
-    const streams = args.slice(0, -1) as Stream[];
-    const callback = args[args.length - 1] as (error?: Error) => void;
-
-    let current = streams[0];
-    for (let i = 1; i < streams.length; i++) {
-      current = current.pipe(streams[i]);
+    if (args.length < 2) {
+      throw new Error('Pipeline requires at least 2 streams');
     }
 
-    current.on('error', callback);
-    current.on('end', () => callback());
-    return current;
+    const streams = args.slice(0, -1);
+    const callback = args[args.length - 1];
+
+    if (typeof callback !== 'function') {
+      throw new Error('Last argument must be a callback');
+    }
+
+    let current = streams[0];
+    try {
+      for (let i = 1; i < streams.length; i++) {
+        if (!streams[i] || typeof streams[i].write !== 'function' || typeof streams[i].end !== 'function') {
+          throw new Error(`Invalid stream at position ${i}`);
+        }
+        current = current.pipe(streams[i]);
+      }
+      current.on('error', callback);
+      current.on('end', () => callback());
+      return current;
+    } catch (error) {
+      callback(error);
+      return current;
+    }
   },
+
   finished(stream: Stream, callback: (error?: Error) => void): void {
+    if (!stream || (!stream.readable && !stream.writable)) {
+      callback(new Error('Invalid stream'));
+      return;
+    }
+
     let ended = false;
     
     function onend() {
