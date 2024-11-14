@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { DatabaseManager } from '../config/database';
 import { constants } from '../config/constants';
-import net from 'net';
+import { PortManager } from '../utils/portManager';
 
 interface HealthStatus {
   status: 'healthy' | 'unhealthy';
@@ -16,10 +16,12 @@ interface HealthStatus {
     api: {
       port: number;
       status: 'available' | 'unavailable';
+      fallback?: boolean;
     };
     frontend: {
       port: number;
       status: 'available' | 'unavailable';
+      fallback?: boolean;
     };
   };
   uptime: number;
@@ -33,55 +35,43 @@ interface HealthStatus {
   };
 }
 
-const checkPort = (port: number): Promise<boolean> => {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    
-    server.once('error', () => {
-      resolve(true); // Port is in use (which is good in our case)
-    });
-    
-    server.once('listening', () => {
-      server.close();
-      resolve(false); // Port is not in use
-    });
-    
-    server.listen(port, '0.0.0.0');
-  });
-};
-
 export const healthCheck = async (_req: Request, res: Response) => {
   try {
     // Check database connectivity
     const isDbConnected = await DatabaseManager.testConnection();
     const dbMetrics = await DatabaseManager.getPoolMetrics();
 
-    // Check port availability
-    const apiPort = constants.ENV.isDev ? constants.INTERNAL_PORT : constants.PORTS.getAPIPort();
-    const frontendPort = constants.PORTS.getFrontendPort();
+    // Get current port configuration
+    const apiPort = parseInt(process.env.PORT || constants.INTERNAL_PORT.toString());
+    const frontendPort = parseInt(process.env.VITE_DEV_SERVER_PORT || constants.VITE.DEV_SERVER_PORT.toString());
 
-    const [isApiPortInUse, isFrontendPortInUse] = await Promise.all([
-      checkPort(apiPort),
-      checkPort(frontendPort)
-    ]);
+    // Check if ports are available using PortManager
+    const isApiPortAvailable = await PortManager.isPortAvailable(apiPort);
+    const isFrontendPortAvailable = await PortManager.isPortAvailable(frontendPort);
+
+    // Determine if we're using fallback ports
+    const isApiFallback = apiPort !== constants.INTERNAL_PORT;
+    const isFrontendFallback = frontendPort !== constants.VITE.DEV_SERVER_PORT;
 
     const health: HealthStatus = {
-      status: isDbConnected && isApiPortInUse && isFrontendPortInUse ? 'healthy' : 'unhealthy',
+      status: isDbConnected && (!isApiPortAvailable) && (!isFrontendPortAvailable) ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       services: {
         database: isDbConnected ? 'connected' : 'disconnected',
-        api: isApiPortInUse ? 'running' : 'stopped',
-        frontend: isFrontendPortInUse ? 'running' : 'stopped'
+        api: !isApiPortAvailable ? 'running' : 'stopped',
+        frontend: !isFrontendPortAvailable ? 'running' : 'stopped'
       },
       ports: {
         api: {
           port: apiPort,
-          status: isApiPortInUse ? 'available' : 'unavailable'
+          status: !isApiPortAvailable ? 'available' : 'unavailable',
+          fallback: isApiFallback
         },
         frontend: {
           port: frontendPort,
-          status: isFrontendPortInUse ? 'available' : 'unavailable'
+          status: !isFrontendPortAvailable ? 'available' : 'unavailable',
+          fallback: isFrontendFallback
         }
       },
       uptime: process.uptime(),
@@ -111,16 +101,15 @@ export const readiness = async (_req: Request, res: Response) => {
     // Verify database connection
     const isDbConnected = await DatabaseManager.testConnection();
     
-    // Check port availability
-    const apiPort = constants.ENV.isDev ? constants.INTERNAL_PORT : constants.PORTS.getAPIPort();
-    const frontendPort = constants.PORTS.getFrontendPort();
+    // Get current port configuration
+    const apiPort = parseInt(process.env.PORT || constants.INTERNAL_PORT.toString());
+    const frontendPort = parseInt(process.env.VITE_DEV_SERVER_PORT || constants.VITE.DEV_SERVER_PORT.toString());
     
-    const [isApiPortInUse, isFrontendPortInUse] = await Promise.all([
-      checkPort(apiPort),
-      checkPort(frontendPort)
-    ]);
+    // Check if ports are available using PortManager
+    const isApiPortAvailable = await PortManager.isPortAvailable(apiPort);
+    const isFrontendPortAvailable = await PortManager.isPortAvailable(frontendPort);
     
-    if (!isDbConnected || !isApiPortInUse || !isFrontendPortInUse) {
+    if (!isDbConnected || isApiPortAvailable || isFrontendPortAvailable) {
       throw new Error('Service readiness check failed');
     }
 

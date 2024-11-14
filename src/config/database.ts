@@ -53,6 +53,31 @@ export class DatabaseManager {
     }
   });
 
+  static async initialize(): Promise<void> {
+    try {
+      // Test the connection
+      const isConnected = await this.testConnection();
+      if (!isConnected) {
+        throw new Error('Failed to establish initial database connection');
+      }
+      
+      console.log(`[${new Date().toISOString()}] [DATABASE] Database initialized successfully`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [DATABASE] Initialization error:`, error);
+      throw error;
+    }
+  }
+
+  static async close(): Promise<void> {
+    try {
+      await pool.end();
+      console.log(`[${new Date().toISOString()}] [DATABASE] Database connections closed`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [DATABASE] Error closing connections:`, error);
+      throw error;
+    }
+  }
+
   static async getConnection() {
     return this.retryManager.execute(async () => {
       try {
