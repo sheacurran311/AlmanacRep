@@ -22,22 +22,22 @@ const federationConfig = {
     // Storage and utilities
     '@replit/object-storage': { singleton: true },
     
-    // Node polyfills - removed from shared to avoid conflicts
+    // Core Node.js polyfills
     events: { singleton: true, eager: true },
-    process: { singleton: true, eager: true }
+    util: { singleton: true, eager: true },
+    stream: { singleton: true, eager: true }
   }
 };
 
 export const vitePlugins = [
   nodePolyfills({
-    include: ['stream', 'util', 'events', 'process'],
+    include: ['events', 'stream', 'util'],
     globals: {
       Buffer: true,
       global: true,
       process: true
     },
-    prototypes: true,
-    overrides: {
+    override: {
       stream: './src/client/utils/streamPolyfill.ts',
       util: './src/client/utils/utilPolyfill.ts'
     }
@@ -59,7 +59,7 @@ export const buildConfig = {
       manualChunks: {
         vendor: ['react', 'react-dom', 'react-router-dom'],
         mui: ['@mui/material', '@mui/icons-material'],
-        polyfills: ['events', './src/client/utils/streamPolyfill.ts', './src/client/utils/utilPolyfill.ts']
+        polyfills: ['events', 'util']
       }
     }
   }

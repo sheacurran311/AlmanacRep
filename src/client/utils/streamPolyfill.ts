@@ -1,236 +1,274 @@
 import { EventEmitter } from 'events';
-import type { Transform as TransformType, Readable as ReadableType, Writable as WritableType } from 'stream';
 
-interface StreamOptions {
-  highWaterMark?: number;
-  objectMode?: boolean;
-}
-
-// Base Stream class with proper prototype chain
+// Base Stream implementation
 class Stream extends EventEmitter {
-  readable: boolean;
-  writable: boolean;
-  protected _options: StreamOptions;
-
-  constructor(options: StreamOptions = {}) {
-    super();
-    this.readable = false;
-    this.writable = false;
-    this._options = {
-      highWaterMark: 16384,
-      objectMode: false,
-      ...options
-    };
-  }
-
   pipe<T extends NodeJS.WritableStream>(destination: T, options?: { end?: boolean }): T {
-    if (!destination || typeof destination.write !== 'function') {
-      throw new Error('Invalid destination stream');
-    }
+    const shouldEnd = options?.end !== false;
+    const source = this;
 
-    const shouldEndOnFinish = options?.end !== false;
-
-    this.on('data', (chunk: any) => {
-      try {
-        const canContinue = destination.write(chunk);
-        if (!canContinue) {
-          this.pause?.();
-        }
-      } catch (error) {
-        this.emit('error', error);
+    function ondata(chunk: any) {
+      if (destination.write(chunk) === false) {
+        source.pause?.();
       }
-    });
-
-    destination.on('drain', () => {
-      this.resume?.();
-    });
-
-    if (shouldEndOnFinish) {
-      this.on('end', () => {
-        try {
-          if (typeof destination.end === 'function') {
-            destination.end();
-          }
-        } catch (error) {
-          this.emit('error', error);
-        }
-      });
     }
+
+    source.on('data', ondata);
+
+    function ondrain() {
+      if ((source as any).readable && source.resume) {
+        source.resume();
+      }
+    }
+
+    destination.on('drain', ondrain);
+
+    function cleanup() {
+      destination.removeListener('drain', ondrain);
+      source.removeListener('data', ondata);
+    }
+
+    function onend() {
+      cleanup();
+      if (shouldEnd) {
+        destination.end();
+      }
+    }
+
+    source.on('end', onend);
+    source.on('close', cleanup);
+
+    destination.on('error', (err: Error) => {
+      cleanup();
+      source.emit('error', err);
+    });
 
     return destination;
   }
 
+  pause?(): this {
+    return this;
+  }
+
+  resume?(): this {
+    return this;
+  }
+}
+
+// Readable implementation
+class Readable extends Stream {
+  readable: boolean;
+  private _readableState: {
+    flowing: boolean | null;
+    ended: boolean;
+    length: number;
+    buffer: any[];
+  };
+
+  constructor(options: any = {}) {
+    super();
+    this.readable = true;
+    this._readableState = {
+      flowing: null,
+      ended: false,
+      length: 0,
+      buffer: []
+    };
+  }
+
+  read(size?: number): any {
+    const state = this._readableState;
+    
+    if (state.buffer.length === 0) {
+      return null;
+    }
+
+    if (size === undefined || size >= state.length) {
+      const ret = state.buffer;
+      state.buffer = [];
+      state.length = 0;
+      return ret;
+    }
+
+    return state.buffer.splice(0, size);
+  }
+
+  push(chunk: any): boolean {
+    if (chunk === null) {
+      this._readableState.ended = true;
+      this.emit('end');
+      return false;
+    }
+
+    if (this._readableState.flowing) {
+      this.emit('data', chunk);
+    } else {
+      this._readableState.buffer.push(chunk);
+      this._readableState.length += 1;
+    }
+    return true;
+  }
+
   pause(): this {
+    this._readableState.flowing = false;
     this.emit('pause');
     return this;
   }
 
   resume(): this {
-    this.emit('resume');
-    return this;
-  }
-}
-
-// Create prototype chain manually for browser compatibility
-const ReadableProto = Object.create(Stream.prototype);
-const WritableProto = Object.create(Stream.prototype);
-const TransformProto = Object.create(Stream.prototype);
-
-class Readable extends Stream implements ReadableType {
-  private _reading: boolean;
-  private _ended: boolean;
-  private _readableState: { length: number; flowing: boolean | null };
-
-  constructor(options?: StreamOptions) {
-    super(options);
-    this.readable = true;
-    this._reading = false;
-    this._ended = false;
-    this._readableState = {
-      length: 0,
-      flowing: null
-    };
-    Object.setPrototypeOf(this, ReadableProto);
-  }
-
-  _read(_size?: number): void {
-    if (!this._reading) {
-      this._reading = true;
-      Promise.resolve().then(() => {
-        this._reading = false;
-        this.emit('readable');
-      });
+    if (!this._readableState.flowing) {
+      this._readableState.flowing = true;
+      while (this._readableState.buffer.length) {
+        const chunk = this.read();
+        this.emit('data', chunk);
+      }
     }
-  }
-
-  read(_size?: number): any {
-    return null;
-  }
-
-  pipe<T extends NodeJS.WritableStream>(destination: T, options?: { end?: boolean }): T {
-    return super.pipe(destination, options);
+    return this;
   }
 
   isPaused(): boolean {
     return this._readableState.flowing === false;
   }
-
-  unpipe(dest?: NodeJS.WritableStream): this {
-    this.removeAllListeners('data');
-    this.removeAllListeners('end');
-    if (dest) {
-      dest.removeAllListeners('drain');
-    }
-    return this;
-  }
-
-  push(chunk: any, encoding?: BufferEncoding): boolean {
-    if (chunk === null) {
-      this._ended = true;
-      this.emit('end');
-      return false;
-    }
-    this.emit('data', chunk);
-    return true;
-  }
 }
 
-class Writable extends Stream implements WritableType {
-  private _writableState: { ended: boolean; finishing: boolean };
+// Writable implementation
+class Writable extends Stream {
+  writable: boolean;
+  private _writableState: {
+    ended: boolean;
+    finishing: boolean;
+    length: number;
+  };
 
-  constructor(options?: StreamOptions) {
-    super(options);
+  constructor(options: any = {}) {
+    super();
     this.writable = true;
     this._writableState = {
       ended: false,
-      finishing: false
+      finishing: false,
+      length: 0
     };
-    Object.setPrototypeOf(this, WritableProto);
   }
 
-  _write(chunk: any, _encoding: string, callback: (error?: Error | null) => void): void {
-    try {
-      this.emit('data', chunk);
-      callback();
-    } catch (error) {
-      callback(error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  write(chunk: any, encoding?: string | ((error?: Error | null) => void), callback?: (error?: Error | null) => void): boolean {
+  write(chunk: any, encoding?: string | ((error?: Error | null) => void), cb?: (error?: Error | null) => void): boolean {
     if (typeof encoding === 'function') {
-      callback = encoding;
+      cb = encoding;
       encoding = undefined;
     }
 
-    this._write(chunk, encoding as string, callback || (() => {}));
+    if (this._writableState.ended) {
+      const error = new Error('write after end');
+      if (typeof cb === 'function') cb(error);
+      this.emit('error', error);
+      return false;
+    }
+
+    this._writableState.length += 1;
+    this.emit('data', chunk);
+
+    if (typeof cb === 'function') {
+      cb();
+    }
+
     return true;
   }
 
-  end(chunk?: any, encoding?: string | (() => void), callback?: () => void): void {
+  end(chunk?: any, encoding?: string | (() => void), cb?: () => void): void {
     if (typeof chunk === 'function') {
-      callback = chunk;
+      cb = chunk;
       chunk = null;
+      encoding = undefined;
     }
     if (typeof encoding === 'function') {
-      callback = encoding;
+      cb = encoding;
       encoding = undefined;
     }
 
-    if (!this._writableState.ending && !this._writableState.finished) {
-      if (chunk != null) {
-        this.write(chunk, encoding as string);
-      }
-      
-      this._writableState.ending = true;
-      this._writableState.finished = true;
-      this.emit('finish');
-      this.emit('end');
+    if (chunk !== undefined && chunk !== null) {
+      this.write(chunk, encoding as string);
     }
 
-    if (callback) {
-      callback();
+    this._writableState.ended = true;
+    this._writableState.finishing = true;
+    this.emit('finish');
+    
+    if (typeof cb === 'function') {
+      cb();
     }
   }
 }
 
-class Transform extends Stream implements TransformType {
-  constructor(options?: StreamOptions) {
-    super(options);
+// Transform implementation
+class Transform extends Stream {
+  readable: boolean;
+  writable: boolean;
+
+  constructor(options: any = {}) {
+    super();
     this.readable = true;
     this.writable = true;
-    Object.setPrototypeOf(this, TransformProto);
   }
 
-  _transform(chunk: any, _encoding: string, callback: (error?: Error | null, data?: any) => void): void {
+  _transform(chunk: any, encoding: string, callback: (error?: Error | null, data?: any) => void): void {
     callback(null, chunk);
   }
 
-  _flush(callback: (error?: Error | null, data?: any) => void): void {
+  _flush(callback: (error?: Error | null) => void): void {
     callback();
   }
 }
 
-// Create streamAPI with proper prototype inheritance
+// Helper function for prototype inheritance
+function inherits(ctor: any, superCtor: any) {
+  if (superCtor) {
+    ctor.super_ = superCtor;
+    Object.setPrototypeOf(ctor.prototype, superCtor.prototype);
+  }
+}
+
+// Create stream API
 const streamAPI = {
   Stream,
   Readable,
   Writable,
   Transform,
+  inherits,
   pipeline: (source: Stream, ...transforms: Stream[]): Stream => {
-    return transforms.reduce((prev, next) => prev.pipe(next), source);
+    if (!source || !transforms.length) return source;
+    return transforms.reduce((prev, next) => {
+      if (prev && typeof prev.pipe === 'function') {
+        return prev.pipe(next);
+      }
+      return prev;
+    }, source);
   },
   finished: (stream: Stream, callback: (error?: Error) => void): void => {
-    stream.on('end', () => callback());
-    stream.on('error', (err) => callback(err));
+    const cleanup = () => {
+      stream.removeListener('end', onend);
+      stream.removeListener('error', onerror);
+      stream.removeListener('finish', onfinish);
+    };
+
+    const onend = () => {
+      cleanup();
+      callback();
+    };
+
+    const onfinish = () => {
+      cleanup();
+      callback();
+    };
+
+    const onerror = (err: Error) => {
+      cleanup();
+      callback(err);
+    };
+
+    stream.on('end', onend);
+    stream.on('finish', onfinish);
+    stream.on('error', onerror);
   }
 };
 
-// Ensure proper prototype chain is maintained
-Object.setPrototypeOf(Readable.prototype, Stream.prototype);
-Object.setPrototypeOf(Writable.prototype, Stream.prototype);
-Object.setPrototypeOf(Transform.prototype, Stream.prototype);
-
 export default streamAPI;
 export { Stream, Readable, Writable, Transform };
-export type { StreamOptions };
+export type { Stream as StreamType };

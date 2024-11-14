@@ -1,5 +1,5 @@
 import './processPolyfill';
-import streamAPI, { Stream, Readable, Writable, Transform } from './streamPolyfill';
+import streamAPI from './streamPolyfill';
 import utilAPI from './utilPolyfill';
 
 declare global {
@@ -10,50 +10,11 @@ declare global {
   var util: typeof utilAPI;
 }
 
-// Initialize polyfills with proper prototype chain
 const initializePolyfills = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    // Setup stream polyfill with proper prototype chain
-    if (!globalThis.stream) {
-      // Create a proper descriptor for the stream object
-      const streamObj = {
-        ...streamAPI,
-        Stream: streamAPI.Stream,
-        Readable: streamAPI.Readable,
-        Writable: streamAPI.Writable,
-        Transform: streamAPI.Transform
-      };
-
-      // Ensure proper prototype chain is maintained
-      Object.setPrototypeOf(streamObj.Readable.prototype, streamObj.Stream.prototype);
-      Object.setPrototypeOf(streamObj.Writable.prototype, streamObj.Stream.prototype);
-      Object.setPrototypeOf(streamObj.Transform.prototype, streamObj.Stream.prototype);
-
-      const streamDescriptor = {
-        value: Object.freeze(streamObj),
-        writable: false,
-        configurable: false,
-        enumerable: true
-      };
-
-      Object.defineProperty(globalThis, 'stream', streamDescriptor);
-    }
-
-    // Setup util polyfill
-    if (!globalThis.util) {
-      const utilDescriptor = {
-        value: Object.freeze(utilAPI),
-        writable: false,
-        configurable: false,
-        enumerable: true
-      };
-
-      Object.defineProperty(globalThis, 'util', utilDescriptor);
-    }
-
-    // Ensure process is available
+    // Initialize process polyfill
     if (!globalThis.process) {
       const processDescriptor = {
         value: window.process || {},
@@ -61,13 +22,46 @@ const initializePolyfills = () => {
         configurable: true,
         enumerable: true
       };
-
       Object.defineProperty(globalThis, 'process', processDescriptor);
     }
 
-    console.log('[Polyfills] Successfully initialized stream and util polyfills');
+    // Initialize stream polyfill
+    if (!globalThis.stream) {
+      try {
+        const streamDescriptor = {
+          value: streamAPI,
+          writable: false,
+          configurable: false,
+          enumerable: true
+        };
+
+        Object.defineProperty(globalThis, 'stream', streamDescriptor);
+      } catch (error) {
+        console.error('[Polyfills] Stream initialization error:', error);
+        throw new Error('Failed to initialize stream polyfill');
+      }
+    }
+
+    // Initialize util polyfill
+    if (!globalThis.util) {
+      try {
+        const utilDescriptor = {
+          value: utilAPI,
+          writable: false,
+          configurable: false,
+          enumerable: true
+        };
+
+        Object.defineProperty(globalThis, 'util', utilDescriptor);
+      } catch (error) {
+        console.error('[Polyfills] Util initialization error:', error);
+        throw new Error('Failed to initialize util polyfill');
+      }
+    }
+
+    console.log('[Polyfills] Successfully initialized polyfills');
   } catch (error) {
-    console.error('[Polyfills] Error initializing polyfills:', error);
+    console.error('[Polyfills] Critical error initializing polyfills:', error);
     throw error;
   }
 };
@@ -77,4 +71,4 @@ initializePolyfills();
 
 // Export enhanced API
 export { streamAPI as stream, utilAPI as util };
-export type { Stream, Readable, Writable, Transform };
+export { Stream, Readable, Writable, Transform } from './streamPolyfill';
