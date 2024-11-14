@@ -1,7 +1,7 @@
 export const constants = {
   PORT: process.env.PORT ? parseInt(process.env.PORT) : 5000,
   INTERNAL_PORT: process.env.INTERNAL_PORT ? parseInt(process.env.INTERNAL_PORT) : 3001,
-  EXTERNAL_PORT: process.env.EXTERNAL_PORT ? parseInt(process.env.EXTERNAL_PORT) : 3000, // Updated to 3000
+  EXTERNAL_PORT: process.env.PORT ? parseInt(process.env.PORT) : 80,
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
   STRIPE_KEY: process.env.STRIPE_KEY,
   METAPLEX_RPC: process.env.METAPLEX_RPC || 'https://api.devnet.solana.com',
@@ -27,7 +27,7 @@ export const constants = {
   VITE: {
     DEV_SERVER_PORT: parseInt(process.env.VITE_DEV_SERVER_PORT || '5173'),
     API_SERVER_PORT: parseInt(process.env.VITE_API_SERVER_PORT || '3001'),
-    EXTERNAL_PORT: parseInt(process.env.EXTERNAL_PORT || '3000'), // Use external port
+    EXTERNAL_PORT: parseInt(process.env.VITE_EXTERNAL_PORT || '80'),
     HMR_TIMEOUT: parseInt(process.env.VITE_HMR_TIMEOUT || '30000'),
     HMR_MAX_RETRIES: parseInt(process.env.VITE_HMR_MAX_RETRIES || '100'),
     HMR_RECONNECT_DELAY_MIN: parseInt(process.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000'),
@@ -40,7 +40,26 @@ export const constants = {
   },
   PORTS: {
     getFrontendPort: () => process.env.NODE_ENV === 'development' ? constants.VITE.DEV_SERVER_PORT : constants.EXTERNAL_PORT,
-    getAPIPort: () => process.env.NODE_ENV === 'development' ? constants.INTERNAL_PORT : 443, // Assume HTTPS in production
+    getAPIPort: () => process.env.NODE_ENV === 'development' ? constants.INTERNAL_PORT : 443,
     getExternalPort: () => constants.EXTERNAL_PORT,
   }
+};
+
+export const roles = {
+  ADMIN: 'admin',
+  USER: 'user',
+  CLIENT: 'client',
+  TENANT_ADMIN: 'tenant_admin',
+};
+
+export const schemaConfig = {
+  MAX_TENANTS: 1000,
+  DEFAULT_SCHEMA: 'public',
+  SCHEMA_PREFIX: 'tenant_',
+};
+
+export const tenantConfig = {
+  MAX_USERS_PER_TENANT: 10000,
+  MAX_REWARDS_PER_TENANT: 1000,
+  DEFAULT_POINTS_EXPIRY_DAYS: 365,
 };

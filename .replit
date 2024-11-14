@@ -1,3 +1,84 @@
+modules = ["nodejs-20"]
+
+[nix]
+channel = "stable-24_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Server"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build and Start"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Frontend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Bundle Analysis"
+
+[[workflows.workflow]]
+name = "Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=development PORT=80 INTERNAL_PORT=3001 PGPORT=5432 node --import tsx src/server/server.ts"
+waitForPort = 3001
+
+[[workflows.workflow]]
+name = "Build and Start"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run build:client && npm run dev:server"
+waitForPort = 3000
+
+[[workflows.workflow]]
+name = "Frontend"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd src/client && NODE_ENV=development VITE_DEV_SERVER_PORT=5173 VITE_API_SERVER_PORT=3001 npx vite"
+waitForPort = 5173
+
+[[workflows.workflow]]
+name = "Bundle Analysis"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
 [[workflows.workflow.tasks]]
 task = "packager.installForAll"
 
@@ -11,9 +92,12 @@ deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 3001
-externalPort = 3000
+externalPort = 80
 
 [[ports]]
 localPort = 5173
 externalPort = 5000
 exposeLocalhost = true
+
+[objectStorage]
+defaultBucketID = "replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9"
