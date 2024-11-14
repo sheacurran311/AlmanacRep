@@ -29,26 +29,62 @@ class Stream extends EventEmitter {
     }
 
     this.on('data', (chunk: any) => {
-      destination.write(chunk);
+      try {
+        const canContinue = destination.write(chunk);
+        if (!canContinue) {
+          this.pause?.();
+        }
+      } catch (error) {
+        this.emit('error', error);
+      }
+    });
+
+    destination.on('drain', () => {
+      this.resume?.();
     });
 
     this.on('end', () => {
-      destination.end?.();
+      try {
+        destination.end?.();
+      } catch (error) {
+        this.emit('error', error);
+      }
     });
 
     return destination;
   }
+
+  pause(): this {
+    this.emit('pause');
+    return this;
+  }
+
+  resume(): this {
+    this.emit('resume');
+    return this;
+  }
 }
 
-// Browser-compatible implementations
+// Ensure proper prototype chain for browser environment
 class Readable extends Stream implements ReadableType {
+  private _reading: boolean;
+  private _ended: boolean;
+
   constructor(options?: StreamOptions) {
     super(options);
     this.readable = true;
+    this._reading = false;
+    this._ended = false;
   }
 
   _read(_size?: number): void {
-    // Implementation for browser environment
+    if (!this._reading) {
+      this._reading = true;
+      Promise.resolve().then(() => {
+        this._reading = false;
+        this.emit('readable');
+      });
+    }
   }
 
   read(_size?: number): any {
@@ -57,6 +93,19 @@ class Readable extends Stream implements ReadableType {
 
   pipe<T extends NodeJS.WritableStream>(destination: T): T {
     return super.pipe(destination);
+  }
+
+  isPaused(): boolean {
+    return false;
+  }
+
+  unpipe(dest?: NodeJS.WritableStream): this {
+    this.removeAllListeners('data');
+    this.removeAllListeners('end');
+    if (dest) {
+      dest.removeAllListeners('drain');
+    }
+    return this;
   }
 }
 
@@ -67,8 +116,12 @@ class Writable extends Stream implements WritableType {
   }
 
   _write(chunk: any, _encoding: string, callback: (error?: Error | null) => void): void {
-    this.emit('data', chunk);
-    callback();
+    try {
+      this.emit('data', chunk);
+      callback();
+    } catch (error) {
+      callback(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   write(chunk: any, encoding?: string | ((error?: Error | null) => void), callback?: (error?: Error | null) => void): boolean {
@@ -117,21 +170,27 @@ class Transform extends Stream implements TransformType {
   }
 }
 
-// Create streamAPI with proper inheritance
-const streamAPI = {
-  Stream,
-  Readable,
-  Writable,
-  Transform,
-  // Implement basic stream utilities
-  pipeline: (source: Stream, ...transforms: Stream[]): Stream => {
-    return transforms.reduce((prev, next) => prev.pipe(next), source);
+// Create streamAPI with proper inheritance and prototype chain
+const streamAPI = Object.create(null, {
+  Stream: { value: Stream },
+  Readable: { value: Readable },
+  Writable: { value: Writable },
+  Transform: { value: Transform },
+  pipeline: {
+    value: (source: Stream, ...transforms: Stream[]): Stream => {
+      return transforms.reduce((prev, next) => prev.pipe(next), source);
+    }
   },
-  finished: (stream: Stream, callback: (error?: Error) => void): void => {
-    stream.on('end', () => callback());
-    stream.on('error', (err) => callback(err));
+  finished: {
+    value: (stream: Stream, callback: (error?: Error) => void): void => {
+      stream.on('end', () => callback());
+      stream.on('error', (err) => callback(err));
+    }
   }
-};
+});
+
+// Freeze the API to prevent modifications
+Object.freeze(streamAPI);
 
 export default streamAPI;
 export { Stream, Readable, Writable, Transform };

@@ -15,34 +15,59 @@ const initializePolyfills = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    // Setup stream polyfill
+    // Setup stream polyfill with proper prototype chain
     if (!globalThis.stream) {
-      Object.defineProperty(globalThis, 'stream', {
+      const streamDescriptor = {
         value: Object.freeze(streamAPI),
         writable: false,
         configurable: false,
         enumerable: false
+      };
+
+      // Ensure proper prototype chain
+      Object.defineProperties(streamAPI.Stream.prototype, {
+        pipe: {
+          value: Stream.prototype.pipe,
+          writable: true,
+          configurable: true
+        },
+        pause: {
+          value: Stream.prototype.pause,
+          writable: true,
+          configurable: true
+        },
+        resume: {
+          value: Stream.prototype.resume,
+          writable: true,
+          configurable: true
+        }
       });
+
+      Object.defineProperty(globalThis, 'stream', streamDescriptor);
     }
 
     // Setup util polyfill
     if (!globalThis.util) {
-      Object.defineProperty(globalThis, 'util', {
+      const utilDescriptor = {
         value: Object.freeze(utilAPI),
         writable: false,
         configurable: false,
         enumerable: false
-      });
+      };
+
+      Object.defineProperty(globalThis, 'util', utilDescriptor);
     }
 
     // Ensure process is available
     if (!globalThis.process) {
-      Object.defineProperty(globalThis, 'process', {
+      const processDescriptor = {
         value: window.process || {},
         writable: true,
         configurable: true,
         enumerable: true
-      });
+      };
+
+      Object.defineProperty(globalThis, 'process', processDescriptor);
     }
 
     console.log('[Polyfills] Successfully initialized stream and util polyfills');
