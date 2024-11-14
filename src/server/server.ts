@@ -12,8 +12,8 @@ const startServer = async () => {
     console.log(`[${new Date().toISOString()}] [SERVER] Starting server initialization...`);
     
     // Get ports from environment variables with enhanced validation
-    const API_PORT = constants.INTERNAL_PORT;
-    const EXTERNAL_PORT = constants.EXTERNAL_PORT;
+    const API_PORT = constants.ENV.isDev ? constants.INTERNAL_PORT : constants.PORTS.getAPIPort();
+    const EXTERNAL_PORT = constants.PORTS.getExternalPort();
     const DB_PORT = constants.DATABASE.PORT;
     
     // Enhanced configuration logging

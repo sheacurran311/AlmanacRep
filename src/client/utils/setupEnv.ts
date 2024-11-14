@@ -148,10 +148,18 @@ interface EnvConfig {
 }
 
 const getReplitDomain = (): string => {
+  const replitSlug = process.env.REPL_SLUG;
+  const replitOwner = process.env.REPL_OWNER;
+  
+  if (replitSlug && replitOwner) {
+    return `${replitSlug}.${replitOwner}.repl.co`;
+  }
+  
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     return hostname.includes('.repl.co') ? hostname : '0.0.0.0';
   }
+  
   return '0.0.0.0';
 };
 
@@ -164,10 +172,11 @@ const initializeConfig = (): EnvConfig => {
   
   const domain = getReplitDomain();
   const isLocalhost = domain === '0.0.0.0';
-
+  
+  // Use environment variables with fallbacks
   const frontendPort = parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
   const apiPort = parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
-  const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '5000');
+  const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '80');
 
   const config: EnvConfig = {
     NODE_ENV: mode as Environment,
@@ -178,7 +187,7 @@ const initializeConfig = (): EnvConfig => {
     host: domain,
     ports: {
       frontend: isDev ? frontendPort : externalPort,
-      api: apiPort,
+      api: isLocalhost ? apiPort : 443,
       external: externalPort
     },
     ws: {

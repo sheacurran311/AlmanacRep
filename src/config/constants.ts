@@ -27,11 +27,21 @@ export const constants = {
   VITE: {
     DEV_SERVER_PORT: parseInt(process.env.VITE_DEV_SERVER_PORT || '5173'),
     API_SERVER_PORT: parseInt(process.env.VITE_API_SERVER_PORT || '3001'),
-    EXTERNAL_PORT: parseInt(process.env.VITE_EXTERNAL_PORT || '5000'),
+    EXTERNAL_PORT: parseInt(process.env.VITE_EXTERNAL_PORT || '80'),
     HMR_TIMEOUT: parseInt(process.env.VITE_HMR_TIMEOUT || '30000'),
     HMR_MAX_RETRIES: parseInt(process.env.VITE_HMR_MAX_RETRIES || '100'),
     HMR_RECONNECT_DELAY_MIN: parseInt(process.env.VITE_HMR_RECONNECT_DELAY_MIN || '1000'),
     HMR_RECONNECT_DELAY_MAX: parseInt(process.env.VITE_HMR_RECONNECT_DELAY_MAX || '30000'),
+  },
+  ENV: {
+    isDev: process.env.NODE_ENV === 'development',
+    isProd: process.env.NODE_ENV === 'production',
+    isTest: process.env.NODE_ENV === 'test',
+  },
+  PORTS: {
+    getFrontendPort: () => process.env.NODE_ENV === 'development' ? constants.VITE.DEV_SERVER_PORT : constants.EXTERNAL_PORT,
+    getAPIPort: () => process.env.NODE_ENV === 'development' ? constants.INTERNAL_PORT : 443,
+    getExternalPort: () => constants.EXTERNAL_PORT,
   }
 };
 
