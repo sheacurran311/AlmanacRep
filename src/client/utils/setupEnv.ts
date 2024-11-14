@@ -1,15 +1,9 @@
-import { Client } from '@replit/object-storage';
-import streamAPI, { Stream, Readable, Writable, Transform } from './streamPolyfill';
-import utilAPI from './utilPolyfill';
+import { createObjectStorageClient } from './objectStorageClient';
 import { validateConfig, validateEnvironment, validateLogLevel, validateLogFormat } from '../../utils/configValidation';
 
 const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
 
-interface ExtendedClient extends Client {
-  getSignedUrl(objectPath: string): Promise<string>;
-}
-
-const client = new Client({ bucketId: REPLIT_BUCKET_ID }) as ExtendedClient;
+const client = createObjectStorageClient({ bucketId: REPLIT_BUCKET_ID });
 
 // Environment type definitions
 export type Environment = 'development' | 'staging' | 'production' | 'test';
@@ -59,9 +53,10 @@ interface EnvConfig {
     cacheDuration: number;
     retryAttempts: number;
     uploadConfig: {
+      maxSize: number;
+      timeout: number;
       chunkSize: number;
       concurrency: number;
-      timeout: number;
     };
   };
   logging: {
@@ -175,7 +170,6 @@ const initializeConfig = (): EnvConfig => {
     const domain = getReplitDomain();
     const isLocalhost = domain === '0.0.0.0';
     
-    // Validate ports with fallbacks
     const frontendPort = parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
     const apiPort = parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
     const externalPort = parseInt(import.meta.env.VITE_EXTERNAL_PORT || '80');
@@ -227,9 +221,10 @@ const initializeConfig = (): EnvConfig => {
         cacheDuration: isDev ? 0 : isProduction ? 3600 : 1800,
         retryAttempts: isDev ? 3 : 5,
         uploadConfig: {
-          chunkSize: isDev ? 5 * 1024 * 1024 : 1 * 1024 * 1024,
-          concurrency: isDev ? 3 : 5,
-          timeout: isDev ? 30000 : 60000
+          maxSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
+          timeout: isDev ? 30000 : 60000,
+          chunkSize: 1024 * 1024, // 1MB chunk size
+          concurrency: isDev ? 3 : 2 // Number of concurrent uploads
         }
       },
       logging: {
@@ -320,7 +315,6 @@ const initializeConfig = (): EnvConfig => {
       ? `${config.api.protocol}://0.0.0.0:${config.api.port}`
       : `${config.api.protocol}://${config.host}`;
 
-    // Validate the entire configuration
     return validateConfig(config);
   } catch (error) {
     console.error('[Environment] Configuration validation error:', error);
@@ -350,15 +344,12 @@ try {
 
 export const objectStorage = {
   getSignedUrl: async (objectPath: string): Promise<string> => {
-    if (config.isDev) {
-      try {
-        return await client.getSignedUrl(objectPath);
-      } catch (error) {
-        console.error('[ObjectStorage] Error getting signed URL:', error);
-        return `/${objectPath}`;
-      }
+    try {
+      return await client.getSignedUrl(objectPath);
+    } catch (error) {
+      console.error('[ObjectStorage] Error getting signed URL:', error);
+      return `/${objectPath}`;
     }
-    return `/${objectPath}`;
   }
 };
 
@@ -376,7 +367,4 @@ export const getSecurityConfig = () => config.security;
 export const getFeaturesConfig = () => config.features;
 export const getMonitoringConfig = () => config.monitoring;
 
-export const stream = streamAPI;
-export const util = utilAPI;
-export { Stream, Readable, Writable, Transform };
 export const env = config;

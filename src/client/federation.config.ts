@@ -24,21 +24,19 @@ const federationConfig = {
     
     // Core Node.js polyfills
     events: { singleton: true, eager: true },
-    util: { singleton: true, eager: true },
-    stream: { singleton: true, eager: true }
+    util: { singleton: true, eager: true }
   }
 };
 
 export const vitePlugins = [
   nodePolyfills({
-    include: ['events', 'stream', 'util'],
+    include: ['events', 'process'],
     globals: {
       Buffer: true,
       global: true,
       process: true
     },
-    override: {
-      stream: './src/client/utils/streamPolyfill.ts',
+    overrides: {
       util: './src/client/utils/utilPolyfill.ts'
     }
   })

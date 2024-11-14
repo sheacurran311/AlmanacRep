@@ -1,12 +1,10 @@
 import './processPolyfill';
-import streamAPI from './streamPolyfill';
 import utilAPI from './utilPolyfill';
 
 declare global {
   interface Window {
     process: NodeJS.Process;
   }
-  var stream: typeof streamAPI;
   var util: typeof utilAPI;
 }
 
@@ -23,23 +21,6 @@ const initializePolyfills = () => {
         enumerable: true
       };
       Object.defineProperty(globalThis, 'process', processDescriptor);
-    }
-
-    // Initialize stream polyfill
-    if (!globalThis.stream) {
-      try {
-        const streamDescriptor = {
-          value: streamAPI,
-          writable: false,
-          configurable: false,
-          enumerable: true
-        };
-
-        Object.defineProperty(globalThis, 'stream', streamDescriptor);
-      } catch (error) {
-        console.error('[Polyfills] Stream initialization error:', error);
-        throw new Error('Failed to initialize stream polyfill');
-      }
     }
 
     // Initialize util polyfill
@@ -70,5 +51,4 @@ const initializePolyfills = () => {
 initializePolyfills();
 
 // Export enhanced API
-export { streamAPI as stream, utilAPI as util };
-export { Stream, Readable, Writable, Transform } from './streamPolyfill';
+export { utilAPI as util };
