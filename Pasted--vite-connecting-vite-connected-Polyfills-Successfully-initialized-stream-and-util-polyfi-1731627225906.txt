@@ -1,0 +1,15 @@
+[vite] connecting...
+[vite] connected.
+[Polyfills] Successfully initialized stream and util polyfills
+Module "stream" has been externalized for browser compatibility. Cannot access "stream.prototype" in client code. See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
+Object prototype may only be an Object or null: undefined
+at Function.create (<anonymous>)
+at Object.inherits (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-YWSCVJ6E.js?v=d39c7144:12:35)
+at ../../node_modules/gtoken/node_modules/jws/lib/data-stream.js (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/@replit_object-storage.js?v=d39c7144:13740:11)
+at __require (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-DC5AMYBS.js?v=d39c7144:9:50)
+at ../../node_modules/gtoken/node_modules/jws/lib/sign-stream.js (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/@replit_object-storage.js?v=d39c7144:14022:22)
+at __require (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-DC5AMYBS.js?v=d39c7144:9:50)
+at ../../node_modules/gtoken/node_modules/jws/index.js (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/@replit_object-storage.js?v=d39c7144:14201:22)
+at __require (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-DC5AMYBS.js?v=d39c7144:9:50)
+at ../../node_modules/gtoken/build/src/index.js (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/@replit_object-storage.js?v=d39c7144:14258:15)
+at __require (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-DC5AMYBS.js?v=d39c7144:9:50)
