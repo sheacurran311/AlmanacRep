@@ -2,8 +2,15 @@ import { createObjectStorageClient } from './objectStorageClient';
 import { validateConfig, validateEnvironment, validateLogLevel, validateLogFormat } from '../../utils/configValidation';
 
 const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
+const DEFAULT_LOGO_PATH = '/assets/default-logo.svg';
+const MAX_LOGO_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000;
 
-const client = createObjectStorageClient({ bucketId: REPLIT_BUCKET_ID });
+const client = createObjectStorageClient({
+  bucketId: REPLIT_BUCKET_ID,
+  maxRetries: MAX_LOGO_RETRIES,
+  initialRetryDelay: INITIAL_RETRY_DELAY
+});
 
 // Environment type definitions
 export type Environment = 'development' | 'staging' | 'production' | 'test';
@@ -342,14 +349,46 @@ try {
   throw error;
 }
 
+interface ImageLoadOptions {
+  fallbackUrl?: string;
+  maxRetries?: number;
+  initialRetryDelay?: number;
+}
+
 export const objectStorage = {
-  getSignedUrl: async (objectPath: string): Promise<string> => {
-    try {
-      return await client.getSignedUrl(objectPath);
-    } catch (error) {
-      console.error('[ObjectStorage] Error getting signed URL:', error);
-      return `/${objectPath}`;
+  getSignedUrl: async (objectPath: string, options: ImageLoadOptions = {}): Promise<string> => {
+    const {
+      fallbackUrl = DEFAULT_LOGO_PATH,
+      maxRetries = MAX_LOGO_RETRIES,
+      initialRetryDelay = INITIAL_RETRY_DELAY
+    } = options;
+
+    let retryCount = 0;
+    let lastError: Error | null = null;
+
+    while (retryCount < maxRetries) {
+      try {
+        const signedUrl = await client.getSignedUrl(objectPath);
+        if (signedUrl) {
+          return signedUrl;
+        }
+        
+        // If no URL is returned, throw an error to trigger retry
+        throw new Error('Failed to get signed URL');
+      } catch (error) {
+        lastError = error as Error;
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          // Implement exponential backoff
+          const delay = initialRetryDelay * Math.pow(2, retryCount - 1);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+
+    console.error('[ObjectStorage] Failed to load image after retries:', lastError);
+    return fallbackUrl;
   }
 };
 
