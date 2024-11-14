@@ -62,7 +62,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3001', // Ensure consistency with server port
         changeOrigin: true,
         secure: false,
         ws: true,

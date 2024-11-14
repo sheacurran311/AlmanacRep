@@ -1,5 +1,5 @@
 export const constants = {
-  PORT: process.env.PORT ? parseInt(process.env.PORT) : 5000,
+  PORT: process.env.PORT ? parseInt(process.env.PORT) : 3001,
   INTERNAL_PORT: process.env.INTERNAL_PORT ? parseInt(process.env.INTERNAL_PORT) : 3001,
   EXTERNAL_PORT: process.env.PORT ? parseInt(process.env.PORT) : 80,
   JWT_SECRET: process.env.JWT_SECRET || 'your-secret-key',
@@ -40,7 +40,7 @@ export const constants = {
   },
   PORTS: {
     getFrontendPort: () => process.env.NODE_ENV === 'development' ? constants.VITE.DEV_SERVER_PORT : constants.EXTERNAL_PORT,
-    getAPIPort: () => process.env.NODE_ENV === 'development' ? constants.INTERNAL_PORT : 443,
+    getAPIPort: () => process.env.NODE_ENV === 'development' ? constants.INTERNAL_PORT : constants.EXTERNAL_PORT,
     getExternalPort: () => constants.EXTERNAL_PORT,
   }
 };
