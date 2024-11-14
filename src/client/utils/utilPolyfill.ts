@@ -1,4 +1,4 @@
-import { EventEmitter } from 'events';
+import type { InspectOptions } from 'util';
 
 const createDebugLog = (section: string) => {
   return (...args: any[]) => {
@@ -9,7 +9,7 @@ const createDebugLog = (section: string) => {
 };
 
 const createInspect = () => {
-  return (obj: any, options?: { depth?: number; colors?: boolean }): string => {
+  return (obj: any, options?: InspectOptions): string => {
     try {
       if (obj === null) return 'null';
       if (obj === undefined) return 'undefined';
@@ -43,54 +43,8 @@ const createInspect = () => {
   };
 };
 
-const createInherits = () => {
-  return (ctor: any, superCtor: any): void => {
-    if (!ctor || !superCtor) {
-      throw new TypeError('Cannot set prototype to undefined');
-    }
-    ctor.super_ = superCtor;
-    Object.setPrototypeOf(ctor.prototype, superCtor.prototype);
-  };
-};
-
-const createPromisify = () => {
-  return (fn: Function) => {
-    return (...args: any[]): Promise<any> => {
-      return new Promise((resolve, reject) => {
-        fn(...args, (err: Error | null, ...result: any[]) => {
-          if (err) reject(err);
-          else resolve(result.length === 1 ? result[0] : result);
-        });
-      });
-    };
-  };
-};
-
-const utilAPI = Object.freeze({
-  debuglog: createDebugLog,
-  inspect: createInspect(),
-  inherits: createInherits(),
-  promisify: createPromisify(),
-  
-  types: {
-    isArray: Array.isArray,
-    isBoolean: (obj: any): obj is boolean => typeof obj === 'boolean',
-    isBuffer: (_obj: any): boolean => false,
-    isDate: (obj: any): obj is Date => obj instanceof Date,
-    isError: (obj: any): obj is Error => obj instanceof Error,
-    isFunction: (obj: any): obj is Function => typeof obj === 'function',
-    isNull: (obj: any): obj is null => obj === null,
-    isNullOrUndefined: (obj: any): obj is null | undefined => obj == null,
-    isNumber: (obj: any): obj is number => typeof obj === 'number' && !isNaN(obj),
-    isObject: (obj: any): obj is object => obj !== null && typeof obj === 'object',
-    isPrimitive: (obj: any): obj is string | number | boolean | null | undefined => 
-      obj === null || (typeof obj !== 'object' && typeof obj !== 'function'),
-    isRegExp: (obj: any): obj is RegExp => obj instanceof RegExp,
-    isString: (obj: any): obj is string => typeof obj === 'string',
-    isSymbol: (obj: any): obj is symbol => typeof obj === 'symbol',
-    isUndefined: (obj: any): obj is undefined => obj === undefined
-  },
-
+const utilAPI = {
+  // Basic utility functions
   format: (format: string, ...args: any[]): string => {
     try {
       let i = 0;
@@ -112,10 +66,54 @@ const utilAPI = Object.freeze({
     } catch (error) {
       return format;
     }
-  }
-});
+  },
 
-export default utilAPI;
+  // Type checking utilities
+  types: {
+    isArray: Array.isArray,
+    isBoolean: (obj: any): obj is boolean => typeof obj === 'boolean',
+    isBuffer: (_obj: any): boolean => false,
+    isDate: (obj: any): obj is Date => obj instanceof Date,
+    isError: (obj: any): obj is Error => obj instanceof Error,
+    isFunction: (obj: any): obj is Function => typeof obj === 'function',
+    isNull: (obj: any): obj is null => obj === null,
+    isNullOrUndefined: (obj: any): obj is null | undefined => obj == null,
+    isNumber: (obj: any): obj is number => typeof obj === 'number' && !isNaN(obj),
+    isObject: (obj: any): obj is object => obj !== null && typeof obj === 'object',
+    isPrimitive: (obj: any): obj is string | number | boolean | null | undefined => 
+      obj === null || (typeof obj !== 'object' && typeof obj !== 'function'),
+    isRegExp: (obj: any): obj is RegExp => obj instanceof RegExp,
+    isString: (obj: any): obj is string => typeof obj === 'string',
+    isSymbol: (obj: any): obj is symbol => typeof obj === 'symbol',
+    isUndefined: (obj: any): obj is undefined => obj === undefined
+  },
+
+  // Safe implementations of commonly used util functions
+  debuglog: createDebugLog,
+  inspect: createInspect(),
+
+  // Additional utility functions
+  inherits: (ctor: any, superCtor: any): void => {
+    if (!ctor || !superCtor) {
+      throw new TypeError('Cannot set prototype to undefined');
+    }
+    Object.setPrototypeOf(ctor.prototype, superCtor.prototype);
+  },
+
+  promisify: (fn: Function) => {
+    return (...args: any[]): Promise<any> => {
+      return new Promise((resolve, reject) => {
+        fn(...args, (err: Error | null, ...result: any[]) => {
+          if (err) reject(err);
+          else resolve(result.length === 1 ? result[0] : result);
+        });
+      });
+    };
+  }
+};
+
+export default Object.freeze(utilAPI);
+
 export const {
   debuglog,
   inspect,

@@ -1,5 +1,4 @@
 import './processPolyfill';
-import { EventEmitter } from 'events';
 import streamAPI, { Stream, Readable, Writable, Transform } from './streamPolyfill';
 import utilAPI from './utilPolyfill';
 
@@ -16,7 +15,7 @@ const initializePolyfills = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    // Define non-enumerable properties on globalThis
+    // Setup stream polyfill
     if (!globalThis.stream) {
       Object.defineProperty(globalThis, 'stream', {
         value: Object.freeze(streamAPI),
@@ -26,6 +25,7 @@ const initializePolyfills = () => {
       });
     }
 
+    // Setup util polyfill
     if (!globalThis.util) {
       Object.defineProperty(globalThis, 'util', {
         value: Object.freeze(utilAPI),

@@ -1,10 +1,12 @@
 import { EventEmitter } from 'events';
+import type { Transform as TransformType, Readable as ReadableType, Writable as WritableType } from 'stream';
 
 interface StreamOptions {
   highWaterMark?: number;
   objectMode?: boolean;
 }
 
+// Base Stream class with proper inheritance
 class Stream extends EventEmitter {
   readable: boolean;
   writable: boolean;
@@ -26,90 +28,56 @@ class Stream extends EventEmitter {
       throw new Error('Invalid destination stream');
     }
 
-    const ondata = (chunk: any): void => {
-      if (destination.write(chunk) === false) {
-        this.pause();
-      }
-    };
+    this.on('data', (chunk: any) => {
+      destination.write(chunk);
+    });
 
-    this.on('data', ondata);
-
-    const ondrain = (): void => {
-      this.resume();
-    };
-
-    destination.on('drain', ondrain);
-
-    let didOnEnd = false;
-    const onend = (): void => {
-      if (didOnEnd) return;
-      didOnEnd = true;
+    this.on('end', () => {
       destination.end?.();
-    };
-
-    const cleanup = (): void => {
-      this.removeListener('data', ondata);
-      destination.removeListener('drain', ondrain);
-      this.removeListener('end', onend);
-      this.removeListener('error', onerror);
-      destination.removeListener('error', onerror);
-    };
-
-    const onerror = (err: Error): void => {
-      cleanup();
-      this.emit('error', err);
-    };
-
-    this.on('error', onerror);
-    destination.on('error', onerror);
-    this.on('end', onend);
+    });
 
     return destination;
   }
-
-  pause(): this {
-    return this;
-  }
-
-  resume(): this {
-    return this;
-  }
 }
 
-class Readable extends Stream {
+// Browser-compatible implementations
+class Readable extends Stream implements ReadableType {
   constructor(options?: StreamOptions) {
     super(options);
     this.readable = true;
   }
 
-  pause(): this {
-    this.emit('pause');
-    return this;
-  }
-
-  resume(): this {
-    this.emit('resume');
-    return this;
+  _read(_size?: number): void {
+    // Implementation for browser environment
   }
 
   read(_size?: number): any {
     return null;
   }
+
+  pipe<T extends NodeJS.WritableStream>(destination: T): T {
+    return super.pipe(destination);
+  }
 }
 
-class Writable extends Stream {
+class Writable extends Stream implements WritableType {
   constructor(options?: StreamOptions) {
     super(options);
     this.writable = true;
   }
 
-  write(chunk: any, encoding?: string, callback?: (error?: Error | null) => void): boolean {
+  _write(chunk: any, _encoding: string, callback: (error?: Error | null) => void): void {
+    this.emit('data', chunk);
+    callback();
+  }
+
+  write(chunk: any, encoding?: string | ((error?: Error | null) => void), callback?: (error?: Error | null) => void): boolean {
     if (typeof encoding === 'function') {
       callback = encoding;
       encoding = undefined;
     }
-    if (callback) callback(null);
-    this.emit('data', chunk);
+
+    this._write(chunk, encoding as string, callback || (() => {}));
     return true;
   }
 
@@ -117,7 +85,8 @@ class Writable extends Stream {
     if (typeof chunk === 'function') {
       callback = chunk;
       chunk = null;
-    } else if (typeof encoding === 'function') {
+    }
+    if (typeof encoding === 'function') {
       callback = encoding;
       encoding = undefined;
     }
@@ -132,47 +101,35 @@ class Writable extends Stream {
   }
 }
 
-class Transform extends Stream {
+class Transform extends Stream implements TransformType {
   constructor(options?: StreamOptions) {
     super(options);
     this.readable = true;
     this.writable = true;
   }
+
+  _transform(chunk: any, _encoding: string, callback: (error?: Error | null, data?: any) => void): void {
+    callback(null, chunk);
+  }
+
+  _flush(callback: (error?: Error | null, data?: any) => void): void {
+    callback();
+  }
 }
 
+// Create streamAPI with proper inheritance
 const streamAPI = {
   Stream,
   Readable,
   Writable,
   Transform,
+  // Implement basic stream utilities
   pipeline: (source: Stream, ...transforms: Stream[]): Stream => {
-    return transforms.reduce((prev: any, next) => prev.pipe(next), source);
+    return transforms.reduce((prev, next) => prev.pipe(next), source);
   },
   finished: (stream: Stream, callback: (error?: Error) => void): void => {
-    const cleanup = () => {
-      stream.removeListener('end', onend);
-      stream.removeListener('error', onerror);
-      stream.removeListener('finish', onfinish);
-    };
-
-    const onend = () => {
-      cleanup();
-      callback();
-    };
-
-    const onerror = (err: Error) => {
-      cleanup();
-      callback(err);
-    };
-
-    const onfinish = () => {
-      cleanup();
-      callback();
-    };
-
-    stream.on('end', onend);
-    stream.on('error', onerror);
-    stream.on('finish', onfinish);
+    stream.on('end', () => callback());
+    stream.on('error', (err) => callback(err));
   }
 };
 
