@@ -22,11 +22,8 @@ const federationConfig = {
     // Storage and utilities
     '@replit/object-storage': { singleton: true },
     
-    // Node polyfills
-    stream: { singleton: true, eager: true },
-    'stream-browserify': { singleton: true, eager: true },
+    // Node polyfills - removed from shared to avoid conflicts
     events: { singleton: true, eager: true },
-    util: { singleton: true, eager: true },
     process: { singleton: true, eager: true }
   }
 };
@@ -41,8 +38,8 @@ export const vitePlugins = [
     },
     prototypes: true,
     overrides: {
-      stream: 'stream-browserify',
-      util: 'util/util.js'
+      stream: './src/client/utils/streamPolyfill.ts',
+      util: './src/client/utils/utilPolyfill.ts'
     }
   })
 ];
@@ -62,7 +59,7 @@ export const buildConfig = {
       manualChunks: {
         vendor: ['react', 'react-dom', 'react-router-dom'],
         mui: ['@mui/material', '@mui/icons-material'],
-        polyfills: ['events', 'stream-browserify', 'util', 'process']
+        polyfills: ['events', './src/client/utils/streamPolyfill.ts', './src/client/utils/utilPolyfill.ts']
       }
     }
   }

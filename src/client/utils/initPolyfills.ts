@@ -17,31 +17,26 @@ const initializePolyfills = () => {
   try {
     // Setup stream polyfill with proper prototype chain
     if (!globalThis.stream) {
-      const streamDescriptor = {
-        value: Object.freeze(streamAPI),
-        writable: false,
-        configurable: false,
-        enumerable: false
+      // Create a proper descriptor for the stream object
+      const streamObj = {
+        ...streamAPI,
+        Stream: streamAPI.Stream,
+        Readable: streamAPI.Readable,
+        Writable: streamAPI.Writable,
+        Transform: streamAPI.Transform
       };
 
-      // Ensure proper prototype chain
-      Object.defineProperties(streamAPI.Stream.prototype, {
-        pipe: {
-          value: Stream.prototype.pipe,
-          writable: true,
-          configurable: true
-        },
-        pause: {
-          value: Stream.prototype.pause,
-          writable: true,
-          configurable: true
-        },
-        resume: {
-          value: Stream.prototype.resume,
-          writable: true,
-          configurable: true
-        }
-      });
+      // Ensure proper prototype chain is maintained
+      Object.setPrototypeOf(streamObj.Readable.prototype, streamObj.Stream.prototype);
+      Object.setPrototypeOf(streamObj.Writable.prototype, streamObj.Stream.prototype);
+      Object.setPrototypeOf(streamObj.Transform.prototype, streamObj.Stream.prototype);
+
+      const streamDescriptor = {
+        value: Object.freeze(streamObj),
+        writable: false,
+        configurable: false,
+        enumerable: true
+      };
 
       Object.defineProperty(globalThis, 'stream', streamDescriptor);
     }
@@ -52,7 +47,7 @@ const initializePolyfills = () => {
         value: Object.freeze(utilAPI),
         writable: false,
         configurable: false,
-        enumerable: false
+        enumerable: true
       };
 
       Object.defineProperty(globalThis, 'util', utilDescriptor);

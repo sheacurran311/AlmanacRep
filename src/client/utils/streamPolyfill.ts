@@ -6,7 +6,7 @@ interface StreamOptions {
   objectMode?: boolean;
 }
 
-// Base Stream class with proper inheritance
+// Base Stream class with proper prototype chain
 class Stream extends EventEmitter {
   readable: boolean;
   writable: boolean;
@@ -23,10 +23,12 @@ class Stream extends EventEmitter {
     };
   }
 
-  pipe<T extends NodeJS.WritableStream>(destination: T): T {
+  pipe<T extends NodeJS.WritableStream>(destination: T, options?: { end?: boolean }): T {
     if (!destination || typeof destination.write !== 'function') {
       throw new Error('Invalid destination stream');
     }
+
+    const shouldEndOnFinish = options?.end !== false;
 
     this.on('data', (chunk: any) => {
       try {
@@ -43,13 +45,17 @@ class Stream extends EventEmitter {
       this.resume?.();
     });
 
-    this.on('end', () => {
-      try {
-        destination.end?.();
-      } catch (error) {
-        this.emit('error', error);
-      }
-    });
+    if (shouldEndOnFinish) {
+      this.on('end', () => {
+        try {
+          if (typeof destination.end === 'function') {
+            destination.end();
+          }
+        } catch (error) {
+          this.emit('error', error);
+        }
+      });
+    }
 
     return destination;
   }
@@ -65,16 +71,26 @@ class Stream extends EventEmitter {
   }
 }
 
-// Ensure proper prototype chain for browser environment
+// Create prototype chain manually for browser compatibility
+const ReadableProto = Object.create(Stream.prototype);
+const WritableProto = Object.create(Stream.prototype);
+const TransformProto = Object.create(Stream.prototype);
+
 class Readable extends Stream implements ReadableType {
   private _reading: boolean;
   private _ended: boolean;
+  private _readableState: { length: number; flowing: boolean | null };
 
   constructor(options?: StreamOptions) {
     super(options);
     this.readable = true;
     this._reading = false;
     this._ended = false;
+    this._readableState = {
+      length: 0,
+      flowing: null
+    };
+    Object.setPrototypeOf(this, ReadableProto);
   }
 
   _read(_size?: number): void {
@@ -91,12 +107,12 @@ class Readable extends Stream implements ReadableType {
     return null;
   }
 
-  pipe<T extends NodeJS.WritableStream>(destination: T): T {
-    return super.pipe(destination);
+  pipe<T extends NodeJS.WritableStream>(destination: T, options?: { end?: boolean }): T {
+    return super.pipe(destination, options);
   }
 
   isPaused(): boolean {
-    return false;
+    return this._readableState.flowing === false;
   }
 
   unpipe(dest?: NodeJS.WritableStream): this {
@@ -107,12 +123,29 @@ class Readable extends Stream implements ReadableType {
     }
     return this;
   }
+
+  push(chunk: any, encoding?: BufferEncoding): boolean {
+    if (chunk === null) {
+      this._ended = true;
+      this.emit('end');
+      return false;
+    }
+    this.emit('data', chunk);
+    return true;
+  }
 }
 
 class Writable extends Stream implements WritableType {
+  private _writableState: { ended: boolean; finishing: boolean };
+
   constructor(options?: StreamOptions) {
     super(options);
     this.writable = true;
+    this._writableState = {
+      ended: false,
+      finishing: false
+    };
+    Object.setPrototypeOf(this, WritableProto);
   }
 
   _write(chunk: any, _encoding: string, callback: (error?: Error | null) => void): void {
@@ -144,13 +177,20 @@ class Writable extends Stream implements WritableType {
       encoding = undefined;
     }
 
-    if (chunk != null) {
-      this.write(chunk, encoding as string);
+    if (!this._writableState.ending && !this._writableState.finished) {
+      if (chunk != null) {
+        this.write(chunk, encoding as string);
+      }
+      
+      this._writableState.ending = true;
+      this._writableState.finished = true;
+      this.emit('finish');
+      this.emit('end');
     }
 
-    this.emit('finish');
-    this.emit('end');
-    if (callback) callback();
+    if (callback) {
+      callback();
+    }
   }
 }
 
@@ -159,6 +199,7 @@ class Transform extends Stream implements TransformType {
     super(options);
     this.readable = true;
     this.writable = true;
+    Object.setPrototypeOf(this, TransformProto);
   }
 
   _transform(chunk: any, _encoding: string, callback: (error?: Error | null, data?: any) => void): void {
@@ -170,27 +211,25 @@ class Transform extends Stream implements TransformType {
   }
 }
 
-// Create streamAPI with proper inheritance and prototype chain
-const streamAPI = Object.create(null, {
-  Stream: { value: Stream },
-  Readable: { value: Readable },
-  Writable: { value: Writable },
-  Transform: { value: Transform },
-  pipeline: {
-    value: (source: Stream, ...transforms: Stream[]): Stream => {
-      return transforms.reduce((prev, next) => prev.pipe(next), source);
-    }
+// Create streamAPI with proper prototype inheritance
+const streamAPI = {
+  Stream,
+  Readable,
+  Writable,
+  Transform,
+  pipeline: (source: Stream, ...transforms: Stream[]): Stream => {
+    return transforms.reduce((prev, next) => prev.pipe(next), source);
   },
-  finished: {
-    value: (stream: Stream, callback: (error?: Error) => void): void => {
-      stream.on('end', () => callback());
-      stream.on('error', (err) => callback(err));
-    }
+  finished: (stream: Stream, callback: (error?: Error) => void): void => {
+    stream.on('end', () => callback());
+    stream.on('error', (err) => callback(err));
   }
-});
+};
 
-// Freeze the API to prevent modifications
-Object.freeze(streamAPI);
+// Ensure proper prototype chain is maintained
+Object.setPrototypeOf(Readable.prototype, Stream.prototype);
+Object.setPrototypeOf(Writable.prototype, Stream.prototype);
+Object.setPrototypeOf(Transform.prototype, Stream.prototype);
 
 export default streamAPI;
 export { Stream, Readable, Writable, Transform };
