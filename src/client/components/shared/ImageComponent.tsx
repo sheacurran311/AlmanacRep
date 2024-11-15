@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getSignedUrl } from '../../utils/setupEnv';
 import { PolyfillError } from '../../utils/initPolyfills';
+import { createBrowserStreamFromResponse } from '../../utils/browserStream';
 
 interface ImageComponentProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string;
@@ -26,6 +27,7 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
   useEffect(() => {
     let mounted = true;
     let abortController: AbortController | null = null;
+    let blobUrl: string | null = null;
 
     const loadImage = async () => {
       if (!src) {
@@ -47,51 +49,44 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
         setError(null);
         abortController = new AbortController();
 
-        // Create a timeout promise
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Image load timeout')), 10000);
+        // Cleanup previous blob URL if exists
+        if (blobUrl) {
+          URL.revokeObjectURL(blobUrl);
+          blobUrl = null;
+        }
+
+        const targetUrl = src.startsWith('http') || src.startsWith('/') ? src : await getSignedUrl(src);
+        if (!targetUrl) {
+          throw new Error('Failed to get image URL');
+        }
+
+        const response = await fetch(targetUrl, { signal: abortController.signal });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+
+        // Use our custom stream implementation
+        const stream = await createBrowserStreamFromResponse(response);
+        const chunks: Uint8Array[] = [];
+        
+        stream.on('data', (chunk: Uint8Array) => {
+          chunks.push(chunk);
         });
 
-        if (src.startsWith('http') || src.startsWith('/')) {
-          // For direct URLs, verify accessibility with timeout
-          const fetchPromise = fetch(src, { signal: abortController.signal });
-          const response = await Promise.race([fetchPromise, timeoutPromise]);
-          
-          if (!response.ok) {
-            throw new Error(`Failed to verify image URL: ${response.status}`);
-          }
-          
-          if (mounted) setCurrentSrc(src);
-        } else {
-          try {
-            const signedUrl = await getSignedUrl(src);
-            if (!signedUrl) {
-              throw new Error('Failed to get signed URL');
-            }
+        await new Promise<void>((resolve, reject) => {
+          stream.on('end', () => resolve());
+          stream.on('error', (err) => reject(err));
+        });
 
-            if (!mounted) return;
+        const blob = new Blob(chunks, { type: response.headers.get('content-type') || 'image/jpeg' });
+        blobUrl = URL.createObjectURL(blob);
 
-            // Verify signed URL is accessible
-            const fetchPromise = fetch(signedUrl, { 
-              method: 'HEAD',
-              signal: abortController.signal 
-            });
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-            
-            if (!response.ok) {
-              throw new Error(`Failed to verify signed URL: ${response.status}`);
-            }
-
-            if (mounted) setCurrentSrc(signedUrl);
-          } catch (err) {
-            if (err instanceof PolyfillError) {
-              console.error('[ImageComponent] Polyfill error:', err);
-              throw err;
-            }
-            throw new Error(`Failed to load signed URL: ${err.message}`);
-          }
-        }
+        if (!mounted) return;
+        setCurrentSrc(blobUrl);
+        setLoading(false);
       } catch (err) {
+        if (!mounted) return;
+
         const error = err instanceof Error ? err : new Error(String(err));
         console.warn(`[ImageComponent] Load error (attempt ${retryCount + 1}/${maxRetries}):`, {
           src,
@@ -99,18 +94,12 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
           stack: error.stack
         });
 
-        if (mounted) {
-          setError(error);
-          if (retryCount < maxRetries && !(error instanceof PolyfillError)) {
-            // Don't retry on polyfill errors
-            setRetryCount(prev => prev + 1);
-          } else {
-            onError?.(error);
-            setCurrentSrc(fallbackSrc);
-          }
-        }
-      } finally {
-        if (mounted) {
+        setError(error);
+        if (retryCount < maxRetries && !(error instanceof PolyfillError)) {
+          setRetryCount(prev => prev + 1);
+        } else {
+          onError?.(error);
+          setCurrentSrc(fallbackSrc);
           setLoading(false);
         }
       }
@@ -127,6 +116,9 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
     return () => {
       mounted = false;
       abortController?.abort();
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
     };
   }, [src, retryCount, maxRetries, fallbackSrc, onError]);
 
