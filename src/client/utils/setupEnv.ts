@@ -2,14 +2,16 @@ import { createObjectStorageClient } from './objectStorageClient';
 import { validateConfig, validateEnvironment, validateLogLevel, validateLogFormat } from '../../utils/configValidation';
 
 const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
-const DEFAULT_LOGO_PATH = '/assets/default-logo.svg';
+const DEFAULT_LOGO_PATH = '/public/assets/default-logo.svg';
 const MAX_LOGO_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000;
+const MAX_CACHE_SIZE = 100;
 
 const client = createObjectStorageClient({
   bucketId: REPLIT_BUCKET_ID,
   maxRetries: MAX_LOGO_RETRIES,
-  initialRetryDelay: INITIAL_RETRY_DELAY
+  initialRetryDelay: INITIAL_RETRY_DELAY,
+  maxCacheSize: MAX_CACHE_SIZE
 });
 
 // Environment type definitions

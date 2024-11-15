@@ -1,33 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Box,
   Container,
   Grid,
   Typography,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import { getSignedUrl } from '../../utils/setupEnv';
+import ImageComponent from '../shared/ImageComponent';
 
 const Footer: React.FC = () => {
-  const [logoUrl, setLogoUrl] = useState('/almanaclogo.png');
-
-  useEffect(() => {
-    const loadLogo = async () => {
-      try {
-        const url = await getSignedUrl('almanaclogo.png');
-        setLogoUrl(url);
-      } catch (error) {
-        console.error('Error loading logo:', error);
-        // Keep the default local path
-      }
-    };
-    loadLogo();
-  }, []);
-
   return (
     <Box
       component="footer"
@@ -42,8 +28,8 @@ const Footer: React.FC = () => {
         <Grid container spacing={4}>
           <Grid item xs={12} sm={6} md={4}>
             <Box sx={{ mb: 2 }}>
-              <img
-                src={logoUrl}
+              <ImageComponent
+                src="almanaclogo.png"
                 alt="Almanac Labs"
                 style={{
                   height: '50px',
@@ -51,13 +37,7 @@ const Footer: React.FC = () => {
                   objectFit: 'contain',
                   filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))'
                 }}
-                loading="lazy"
-                onError={(e) => {
-                  console.error('Error loading logo:', e);
-                  const target = e.currentTarget as HTMLImageElement;
-                  target.src = '/almanaclogo.png'; // Use direct path as fallback
-                  target.onerror = null; // Prevent infinite error loop
-                }}
+                loadingComponent={<CircularProgress size={24} />}
               />
             </Box>
             <Typography variant="body2" sx={{ mb: 2 }}>
