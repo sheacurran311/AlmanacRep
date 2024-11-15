@@ -23,6 +23,7 @@ class BrowserObjectStorageClient {
   private urlCache: SignedUrlCache = {};
   private failedPaths: Set<string> = new Set();
   private maxCacheSize: number;
+  private abortControllers: Map<string, AbortController> = new Map();
 
   constructor(options: ObjectStorageOptions) {
     this.bucketId = options.bucketId;
@@ -31,11 +32,21 @@ class BrowserObjectStorageClient {
     this.maxRetries = options.maxRetries || 3;
     this.initialRetryDelay = options.initialRetryDelay || 1000;
     this.maxCacheSize = options.maxCacheSize || 100;
+
+    // Handle beforeunload to cleanup any pending requests
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => this.cleanup());
+    }
+  }
+
+  private cleanup(): void {
+    this.abortControllers.forEach(controller => controller.abort());
+    this.abortControllers.clear();
   }
 
   private getCachedUrl(objectPath: string): string | null {
-    // Return null immediately if path is known to fail
     if (this.failedPaths.has(objectPath)) {
+      console.debug(`[ObjectStorage] Skipping known failed path: ${objectPath}`);
       return null;
     }
 
@@ -50,10 +61,10 @@ class BrowserObjectStorageClient {
   private cleanCache(): void {
     const cacheEntries = Object.entries(this.urlCache);
     if (cacheEntries.length > this.maxCacheSize) {
-      // Sort by expiry and remove oldest entries
-      cacheEntries.sort(([, a], [, b]) => a.expiry - b.expiry);
-      const entriesToRemove = cacheEntries.slice(0, cacheEntries.length - this.maxCacheSize);
-      entriesToRemove.forEach(([key]) => delete this.urlCache[key]);
+      cacheEntries
+        .sort(([, a], [, b]) => a.expiry - b.expiry)
+        .slice(0, cacheEntries.length - this.maxCacheSize)
+        .forEach(([key]) => delete this.urlCache[key]);
     }
   }
 
@@ -65,69 +76,78 @@ class BrowserObjectStorageClient {
     };
   }
 
-  private markPathAsFailed(objectPath: string): void {
+  private markPathAsFailed(objectPath: string, error: Error): void {
+    console.error(`[ObjectStorage] Marking path as failed: ${objectPath}`, error);
     this.failedPaths.add(objectPath);
-    // Clean up failed paths after 5 minutes to allow retry
     setTimeout(() => {
       this.failedPaths.delete(objectPath);
+      console.debug(`[ObjectStorage] Cleared failed status for: ${objectPath}`);
     }, 300000);
   }
 
   private async parseResponse(response: Response): Promise<any> {
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
-      try {
+    try {
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
         return await response.json();
-      } catch (error) {
-        console.error('[ObjectStorage] Error parsing JSON response:', error);
-        return null;
       }
+      return null;
+    } catch (error) {
+      console.error('[ObjectStorage] Error parsing response:', error);
+      throw error;
     }
-    return null;
   }
 
-  private async fetchWithRetry(url: string, options: RequestInit = {}, retryCount: number = 0): Promise<Response | null> {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+  private createAbortController(objectPath: string): AbortController {
+    // Cleanup existing controller if any
+    this.abortControllers.get(objectPath)?.abort();
+    const controller = new AbortController();
+    this.abortControllers.set(objectPath, controller);
+    return controller;
+  }
 
+  private async fetchWithRetry(
+    url: string, 
+    options: RequestInit = {}, 
+    retryCount: number = 0,
+    objectPath?: string
+  ): Promise<Response> {
+    const controller = objectPath ? this.createAbortController(objectPath) : new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
       const response = await fetch(url, {
         ...options,
         signal: controller.signal
       });
 
-      clearTimeout(timeout);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
       return response;
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error('[ObjectStorage] Request timeout:', url);
-        return null;
+        throw new Error(`Request timeout: ${url}`);
       }
 
       if (retryCount >= this.maxRetries) {
-        console.error('[ObjectStorage] Max retries reached:', error);
-        return null;
+        throw new Error(`Max retries reached for ${url}: ${error.message}`);
       }
 
       const delay = this.initialRetryDelay * Math.pow(2, retryCount);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return this.fetchWithRetry(url, options, retryCount + 1);
+      return this.fetchWithRetry(url, options, retryCount + 1, objectPath);
+    } finally {
+      clearTimeout(timeoutId);
+      if (objectPath) {
+        this.abortControllers.delete(objectPath);
+      }
     }
   }
 
   async getSignedUrl(objectPath: string): Promise<string | null> {
     try {
-      // Check failed paths first
-      if (this.failedPaths.has(objectPath)) {
-        console.debug(`[ObjectStorage] Skipping known failed path: ${objectPath}`);
-        return null;
-      }
-
-      // Check cache
       const cachedUrl = this.getCachedUrl(objectPath);
       if (cachedUrl) {
         return cachedUrl;
@@ -137,32 +157,36 @@ class BrowserObjectStorageClient {
         `${window.location.protocol}//${window.location.host}` : 
         'http://localhost:3001';
       
-      const response = await this.fetchWithRetry(`${apiUrl}/api/storage/signed-url?` + new URLSearchParams({
-        bucketId: this.bucketId,
+      const response = await this.fetchWithRetry(
+        `${apiUrl}/api/storage/signed-url?` + new URLSearchParams({
+          bucketId: this.bucketId,
+          objectPath
+        }),
+        {},
+        0,
         objectPath
-      }));
-
-      if (!response) {
-        this.markPathAsFailed(objectPath);
-        return null;
-      }
+      );
 
       const data = await this.parseResponse(response);
-      if (data?.url) {
-        // Verify the URL is accessible
-        const headResponse = await fetch(data.url, { method: 'HEAD' }).catch(() => null);
-        if (headResponse?.ok) {
-          this.setCachedUrl(objectPath, data.url);
-          return data.url;
-        }
+      if (!data?.url) {
+        throw new Error('Invalid response format');
       }
 
-      this.markPathAsFailed(objectPath);
-      return null;
+      // Verify the URL is accessible
+      try {
+        const headResponse = await fetch(data.url, { method: 'HEAD' });
+        if (!headResponse.ok) {
+          throw new Error(`URL verification failed: ${headResponse.status}`);
+        }
+      } catch (error) {
+        throw new Error(`URL verification failed: ${error.message}`);
+      }
+
+      this.setCachedUrl(objectPath, data.url);
+      return data.url;
     } catch (error) {
-      console.error('[ObjectStorage] Error getting signed URL:', error);
-      this.markPathAsFailed(objectPath);
-      return null;
+      this.markPathAsFailed(objectPath, error as Error);
+      throw error;
     }
   }
 
@@ -180,25 +204,24 @@ class BrowserObjectStorageClient {
         `${window.location.protocol}//${window.location.host}` : 
         'http://localhost:3001';
 
-      const response = await this.fetchWithRetry(`${apiUrl}/api/storage/upload-url`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await this.fetchWithRetry(
+        `${apiUrl}/api/storage/upload-url`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bucketId: this.bucketId,
+            path,
+            contentType: file.type
+          })
         },
-        body: JSON.stringify({
-          bucketId: this.bucketId,
-          path,
-          contentType: file.type
-        })
-      });
-
-      if (!response) {
-        return null;
-      }
+        0,
+        path
+      );
 
       const data = await this.parseResponse(response);
       if (!data?.url || !data?.fields) {
-        return null;
+        throw new Error('Invalid upload response format');
       }
 
       const formData = new FormData();
@@ -207,45 +230,31 @@ class BrowserObjectStorageClient {
       });
       formData.append('file', file);
 
-      const uploadResponse = await this.fetchWithRetry(data.url, {
+      await this.fetchWithRetry(data.url, {
         method: 'POST',
         body: formData
-      });
+      }, 0, path);
 
-      if (!uploadResponse) {
-        return null;
-      }
-
-      // Clear from failed paths if it was there
       this.failedPaths.delete(path);
       return path;
     } catch (error) {
-      console.error('[ObjectStorage] Upload error:', error);
-      return null;
+      this.markPathAsFailed(path, error as Error);
+      throw error;
     }
   }
 
   async downloadFile(path: string): Promise<Blob | null> {
     try {
-      if (this.failedPaths.has(path)) {
-        return null;
-      }
-
       const signedUrl = await this.getSignedUrl(path);
       if (!signedUrl) {
-        return null;
+        throw new Error('Failed to get signed URL');
       }
 
-      const response = await this.fetchWithRetry(signedUrl);
-      if (!response) {
-        return null;
-      }
-
+      const response = await this.fetchWithRetry(signedUrl, {}, 0, path);
       return await response.blob();
     } catch (error) {
-      console.error('[ObjectStorage] Download error:', error);
-      this.markPathAsFailed(path);
-      return null;
+      this.markPathAsFailed(path, error as Error);
+      throw error;
     }
   }
 }

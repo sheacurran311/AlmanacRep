@@ -8,7 +8,6 @@ import {
   Menu,
   Container,
   Button,
-  MenuItem,
   CircularProgress,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -41,9 +40,14 @@ const Header: React.FC = () => {
     navigate(path);
   };
 
+  const handleLogoError = (error: Error) => {
+    console.warn('[Header] Logo load error:', error.message);
+  };
+
   const renderLogo = () => (
     <ImageComponent
-      src="almanaclogo.png"
+      src="/assets/almanac-logo.svg"
+      fallbackSrc="/assets/default-logo.svg"
       alt="Almanac Labs"
       style={{
         height: '40px',
@@ -52,6 +56,7 @@ const Header: React.FC = () => {
         filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))'
       }}
       loadingComponent={<CircularProgress size={24} />}
+      onError={handleLogoError}
     />
   );
 
@@ -107,17 +112,33 @@ const Header: React.FC = () => {
               }}
             >
               {pages.map((page) => (
-                <MenuItem 
-                  key={page.title} 
+                <Button
+                  key={page.title}
                   onClick={() => handleNavigation(page.path)}
+                  sx={{ 
+                    color: 'text.primary',
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    px: 2
+                  }}
                 >
-                  <Typography textAlign="center">{page.title}</Typography>
-                </MenuItem>
+                  {page.title}
+                </Button>
               ))}
               {user && (
-                <MenuItem onClick={logout}>
-                  <Typography textAlign="center">Logout</Typography>
-                </MenuItem>
+                <Button
+                  onClick={logout}
+                  sx={{ 
+                    color: 'text.primary',
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    px: 2
+                  }}
+                >
+                  Logout
+                </Button>
               )}
             </Menu>
           </Box>
