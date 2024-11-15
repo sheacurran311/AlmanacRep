@@ -7,9 +7,6 @@ declare global {
   }
   var util: typeof utilAPI;
   var Buffer: typeof global.Buffer;
-  interface ReadableStream {
-    _readableState?: any;
-  }
 }
 
 export class PolyfillError extends Error {
@@ -22,11 +19,10 @@ export class PolyfillError extends Error {
   }
 }
 
-const initializeStreamPolyfills = () => {
+const initializeBufferPolyfill = () => {
   if (typeof window === 'undefined') return;
 
   try {
-    // Initialize Buffer polyfill if not available
     if (!globalThis.Buffer) {
       const BufferPolyfill = {
         from: (data: string | ArrayBuffer | Uint8Array): Uint8Array => {
@@ -65,37 +61,13 @@ const initializeStreamPolyfills = () => {
         enumerable: true,
       });
     }
-
-    // Initialize stream polyfills with enhanced error handling
-    if (!globalThis.ReadableStream.prototype._readableState) {
-      try {
-        Object.defineProperty(ReadableStream.prototype, '_readableState', {
-          get() {
-            try {
-              return this._controller?.desiredSize ?? null;
-            } catch (error) {
-              console.warn('[Polyfills] Stream state access error:', error);
-              return null;
-            }
-          },
-          configurable: true,
-        });
-      } catch (error) {
-        throw new PolyfillError(
-          'Failed to initialize ReadableStream polyfill',
-          error as Error,
-          'stream'
-        );
-      }
-    }
-
-    console.log('[Polyfills] Successfully initialized stream polyfills');
+    console.log('[Polyfills] Successfully initialized buffer polyfill');
   } catch (error) {
-    console.error('[Polyfills] Stream initialization error:', error);
+    console.error('[Polyfills] Buffer initialization error:', error);
     throw new PolyfillError(
-      'Failed to initialize stream polyfills',
+      'Failed to initialize buffer polyfill',
       error as Error,
-      'stream'
+      'buffer'
     );
   }
 };
@@ -201,7 +173,6 @@ const initializePolyfills = () => {
   const errors: PolyfillError[] = [];
 
   try {
-    // Try to initialize each polyfill independently
     try {
       initializeProcessPolyfill();
     } catch (error) {
@@ -215,7 +186,7 @@ const initializePolyfills = () => {
     }
 
     try {
-      initializeStreamPolyfills();
+      initializeBufferPolyfill();
     } catch (error) {
       errors.push(error as PolyfillError);
     }
@@ -266,5 +237,5 @@ const initializePolyfills = () => {
 // Initialize polyfills immediately
 initializePolyfills();
 
-// Export util and remove the redundant PolyfillError export
+// Export util
 export { utilAPI as util };

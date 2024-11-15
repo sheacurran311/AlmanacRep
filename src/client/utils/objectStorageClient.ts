@@ -15,6 +15,8 @@ interface SignedUrlCache {
     url: string;
     expiry: number;
     eTag?: string;
+    contentType?: string;
+    size?: number;
   };
 }
 
@@ -31,18 +33,20 @@ class BrowserObjectStorageClient {
   private maxRetries: number;
   private initialRetryDelay: number;
   private urlCache: SignedUrlCache = {};
-  private failedPaths: Set<string> = new Set();
+  private failedPaths: Map<string, { timestamp: number; retries: number }> = new Map();
   private maxCacheSize: number;
   private cacheDuration: number;
-  private cacheVersion = '1.0';
+  private cacheVersion = '1.1';
   private lastCleanup: number = Date.now();
   private cleanupInterval: number = 300000; // 5 minutes
   private abortControllers: Map<string, AbortController> = new Map();
+  private preloadQueue: Set<string> = new Set();
+  private isPreloading: boolean = false;
 
   constructor(options: ObjectStorageOptions) {
     this.bucketId = options.bucketId;
     this.maxFileSize = options.maxFileSize || 5 * 1024 * 1024;
-    this.allowedTypes = options.allowedTypes || ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    this.allowedTypes = options.allowedTypes || ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
     this.maxRetries = options.maxRetries || 3;
     this.initialRetryDelay = options.initialRetryDelay || 1000;
     this.maxCacheSize = options.maxCacheSize || 100;
@@ -50,9 +54,66 @@ class BrowserObjectStorageClient {
 
     this.loadCacheFromStorage();
     this.setupCacheCleanup();
+    this.setupPreloader();
 
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => this.cleanup());
+      window.addEventListener('online', () => this.handleOnline());
+      window.addEventListener('offline', () => this.handleOffline());
+    }
+  }
+
+  private handleOnline(): void {
+    console.debug('[ObjectStorage] Network is online, resuming operations');
+    this.retryFailedPaths();
+  }
+
+  private handleOffline(): void {
+    console.debug('[ObjectStorage] Network is offline, pausing operations');
+  }
+
+  private setupPreloader(): void {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const processPreloadQueue = async () => {
+        if (this.isPreloading || this.preloadQueue.size === 0) return;
+
+        this.isPreloading = true;
+        const paths = Array.from(this.preloadQueue);
+        this.preloadQueue.clear();
+
+        for (const path of paths) {
+          try {
+            await this.preloadAsset(path);
+          } catch (error) {
+            console.warn(`[ObjectStorage] Failed to preload: ${path}`, error);
+          }
+        }
+
+        this.isPreloading = false;
+      };
+
+      setInterval(() => {
+        (window as any).requestIdleCallback(() => processPreloadQueue(), { timeout: 2000 });
+      }, 5000);
+    }
+  }
+
+  private async preloadAsset(path: string): Promise<void> {
+    try {
+      const url = await this.getSignedUrl(path);
+      if (!url) return;
+
+      // Create a hidden image to trigger browser caching
+      const img = new Image();
+      img.style.display = 'none';
+      img.src = url;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+    } catch (error) {
+      console.warn(`[ObjectStorage] Preload failed for ${path}:`, error);
     }
   }
 
@@ -64,7 +125,13 @@ class BrowserObjectStorageClient {
 
   private setupCacheCleanup(): void {
     if (typeof window !== 'undefined') {
-      setInterval(() => this.cleanCache(), this.cleanupInterval);
+      setInterval(() => {
+        try {
+          this.cleanCache();
+        } catch (error) {
+          console.error('[ObjectStorage] Cache cleanup error:', error);
+        }
+      }, this.cleanupInterval);
     }
   }
 
@@ -74,26 +141,33 @@ class BrowserObjectStorageClient {
       if (storedCache) {
         const parsed: CacheConfig = JSON.parse(storedCache);
         if (parsed.version === this.cacheVersion) {
-          // Validate cached entries before restoring
+          const now = Date.now();
           Object.entries(parsed.urls).forEach(([key, value]) => {
-            if (value.expiry <= Date.now()) {
-              delete parsed.urls[key];
+            if (value.expiry > now) {
+              this.urlCache[key] = value;
             }
           });
-          this.urlCache = parsed.urls;
           this.lastCleanup = parsed.lastCleanup;
-          console.debug('[ObjectStorage] Cache loaded from storage');
+          console.debug('[ObjectStorage] Cache loaded:', Object.keys(this.urlCache).length, 'items');
+        } else {
+          console.debug('[ObjectStorage] Cache version mismatch, clearing cache');
+          this.clearCache();
         }
       }
     } catch (error) {
-      console.warn('[ObjectStorage] Failed to load cache from storage:', error);
-      this.urlCache = {};
+      console.warn('[ObjectStorage] Failed to load cache:', error);
+      this.clearCache();
     }
+  }
+
+  private clearCache(): void {
+    this.urlCache = {};
+    this.failedPaths.clear();
+    localStorage.removeItem('objectStorageCache');
   }
 
   private saveCacheToStorage(): void {
     try {
-      // Clean expired entries before saving
       this.cleanCache();
       
       const cacheConfig: CacheConfig = {
@@ -103,17 +177,22 @@ class BrowserObjectStorageClient {
       };
       localStorage.setItem('objectStorageCache', JSON.stringify(cacheConfig));
     } catch (error) {
-      console.warn('[ObjectStorage] Failed to save cache to storage:', error);
+      console.warn('[ObjectStorage] Failed to save cache:', error);
     }
   }
 
   private getCachedUrl(objectPath: string): string | null {
-    // Normalize path
     const normalizedPath = this.normalizePath(objectPath);
     
-    if (this.failedPaths.has(normalizedPath)) {
-      console.debug(`[ObjectStorage] Skipping known failed path: ${normalizedPath}`);
-      return null;
+    const failedEntry = this.failedPaths.get(normalizedPath);
+    if (failedEntry) {
+      const { timestamp, retries } = failedEntry;
+      const backoffTime = this.initialRetryDelay * Math.pow(2, retries);
+      if (Date.now() - timestamp < backoffTime) {
+        return null;
+      }
+      // Clear failed entry if backoff time has passed
+      this.failedPaths.delete(normalizedPath);
     }
 
     const cached = this.urlCache[normalizedPath];
@@ -125,6 +204,40 @@ class BrowserObjectStorageClient {
       this.saveCacheToStorage();
     }
     return null;
+  }
+
+  private async validateCacheEntry(objectPath: string, url: string): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        signal: controller.signal,
+        cache: 'no-cache'
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const eTag = response.headers.get('etag');
+      const cached = this.urlCache[objectPath];
+      if (eTag && cached?.eTag !== eTag) {
+        return false;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && !this.allowedTypes.includes(contentType)) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   private cleanCache(): void {
@@ -151,11 +264,9 @@ class BrowserObjectStorageClient {
         });
     }
 
-    // Clear failed paths older than 5 minutes
-    const fiveMinutesAgo = now - 300000;
-    this.failedPaths.forEach(path => {
-      const failedTime = parseInt(path.split('_')[1] || '0');
-      if (failedTime < fiveMinutesAgo) {
+    // Clear old failed paths
+    this.failedPaths.forEach((entry, path) => {
+      if (now - entry.timestamp > 300000) { // 5 minutes
         this.failedPaths.delete(path);
       }
     });
@@ -168,40 +279,13 @@ class BrowserObjectStorageClient {
     this.lastCleanup = now;
   }
 
-  private async validateCacheEntry(objectPath: string, url: string): Promise<boolean> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
-      const response = await fetch(url, { 
-        method: 'HEAD',
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const eTag = response.headers.get('etag');
-      if (eTag && this.urlCache[objectPath]?.eTag !== eTag) {
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  private setCachedUrl(objectPath: string, url: string, eTag?: string | null): void {
+  private setCachedUrl(objectPath: string, url: string, metadata?: { eTag?: string; contentType?: string; size?: number }): void {
     const normalizedPath = this.normalizePath(objectPath);
     
     this.urlCache[normalizedPath] = {
       url,
       expiry: Date.now() + this.cacheDuration,
-      eTag: eTag || undefined
+      ...metadata
     };
     
     if (Object.keys(this.urlCache).length >= this.maxCacheSize) {
@@ -213,33 +297,34 @@ class BrowserObjectStorageClient {
 
   private markPathAsFailed(objectPath: string, error: Error): void {
     const normalizedPath = this.normalizePath(objectPath);
-    const timestamp = Date.now();
-    const failedKey = `${normalizedPath}_${timestamp}`;
+    const existingEntry = this.failedPaths.get(normalizedPath);
     
-    console.error(`[ObjectStorage] Marking path as failed: ${normalizedPath}`, error);
-    this.failedPaths.add(failedKey);
+    this.failedPaths.set(normalizedPath, {
+      timestamp: Date.now(),
+      retries: (existingEntry?.retries || 0) + 1
+    });
     
-    // Remove from cache if exists
+    console.error(`[ObjectStorage] Path failed: ${normalizedPath}`, {
+      error: error.message,
+      retries: this.failedPaths.get(normalizedPath)?.retries
+    });
+    
     delete this.urlCache[normalizedPath];
     this.saveCacheToStorage();
   }
 
-  private normalizePath(path: string): string {
-    // Remove leading/trailing slashes and normalize to forward slashes
-    return path.replace(/^\/+|\/+$/g, '').replace(/\\/g, '/');
+  private retryFailedPaths(): void {
+    const now = Date.now();
+    this.failedPaths.forEach((entry, path) => {
+      const backoffTime = this.initialRetryDelay * Math.pow(2, entry.retries - 1);
+      if (now - entry.timestamp >= backoffTime) {
+        this.preloadQueue.add(path);
+      }
+    });
   }
 
-  private async parseResponse(response: Response): Promise<any> {
-    try {
-      const contentType = response.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        return await response.json();
-      }
-      return null;
-    } catch (error) {
-      console.error('[ObjectStorage] Error parsing response:', error);
-      throw error;
-    }
+  private normalizePath(path: string): string {
+    return path.replace(/^\/+|\/+$/g, '').replace(/\\/g, '/');
   }
 
   private createAbortController(objectPath: string): AbortController {
@@ -262,7 +347,7 @@ class BrowserObjectStorageClient {
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
-        cache: 'no-cache' // Ensure we don't use browser's cache
+        cache: 'no-cache'
       });
 
       if (!response.ok) {
@@ -270,7 +355,7 @@ class BrowserObjectStorageClient {
       }
 
       return response;
-    } catch (error: unknown) {
+    } catch (error) {
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw new Error(`Request timeout: ${url}`);
@@ -320,19 +405,20 @@ class BrowserObjectStorageClient {
         normalizedPath
       );
 
-      const data = await this.parseResponse(response);
+      const data = await response.json();
       if (!data?.url) {
         throw new Error('Invalid response format');
       }
 
-      // Verify the URL is accessible and get eTag
+      // Verify the URL is accessible and get metadata
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       try {
         const headResponse = await fetch(data.url, { 
           method: 'HEAD',
-          signal: controller.signal
+          signal: controller.signal,
+          cache: 'no-cache'
         });
         
         clearTimeout(timeoutId);
@@ -341,8 +427,13 @@ class BrowserObjectStorageClient {
           throw new Error(`URL verification failed: ${headResponse.status}`);
         }
 
-        const eTag = headResponse.headers.get('etag');
-        this.setCachedUrl(normalizedPath, data.url, eTag);
+        const metadata = {
+          eTag: headResponse.headers.get('etag') || undefined,
+          contentType: headResponse.headers.get('content-type') || undefined,
+          size: parseInt(headResponse.headers.get('content-length') || '0', 10) || undefined
+        };
+
+        this.setCachedUrl(normalizedPath, data.url, metadata);
         return data.url;
       } catch (error) {
         clearTimeout(timeoutId);
@@ -351,65 +442,6 @@ class BrowserObjectStorageClient {
     } catch (error) {
       if (error instanceof Error) {
         this.markPathAsFailed(objectPath, error);
-      }
-      throw error;
-    }
-  }
-
-  async uploadFile(file: File, path: string): Promise<string | null> {
-    if (file.size > this.maxFileSize) {
-      throw new Error(`File size exceeds maximum allowed size of ${this.maxFileSize} bytes`);
-    }
-
-    if (!this.allowedTypes.includes(file.type)) {
-      throw new Error(`File type ${file.type} is not allowed`);
-    }
-
-    try {
-      const apiUrl = typeof window !== 'undefined' ? 
-        `${window.location.protocol}//${window.location.host}` : 
-        'http://localhost:3001';
-
-      const response = await this.fetchWithRetry(
-        `${apiUrl}/api/storage/upload-url`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bucketId: this.bucketId,
-            path,
-            contentType: file.type
-          })
-        },
-        0,
-        path
-      );
-
-      const data = await this.parseResponse(response);
-      if (!data?.url || !data?.fields) {
-        throw new Error('Invalid upload response format');
-      }
-
-      const formData = new FormData();
-      Object.entries(data.fields).forEach(([key, value]) => {
-        formData.append(key, value as string);
-      });
-      formData.append('file', file);
-
-      await this.fetchWithRetry(data.url, {
-        method: 'POST',
-        body: formData
-      }, 0, path);
-
-      // Clear any cached URL for this path
-      delete this.urlCache[path];
-      this.failedPaths.delete(path);
-      this.saveCacheToStorage();
-
-      return path;
-    } catch (error) {
-      if (error instanceof Error) {
-        this.markPathAsFailed(path, error);
       }
       throw error;
     }

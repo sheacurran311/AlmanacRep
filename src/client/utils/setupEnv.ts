@@ -2,16 +2,19 @@ import { createObjectStorageClient } from './objectStorageClient';
 import { validateConfig, validateEnvironment, validateLogLevel, validateLogFormat } from '../../utils/configValidation';
 
 const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
-const DEFAULT_LOGO_PATH = '/public/assets/default-logo.svg';
+const DEFAULT_LOGO_PATH = '/public/assets/almanaclogo.png';
 const MAX_LOGO_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_CACHE_SIZE = 100;
 
+// Update object storage client configuration
 const client = createObjectStorageClient({
   bucketId: REPLIT_BUCKET_ID,
   maxRetries: MAX_LOGO_RETRIES,
   initialRetryDelay: INITIAL_RETRY_DELAY,
-  maxCacheSize: MAX_CACHE_SIZE
+  maxCacheSize: MAX_CACHE_SIZE,
+  cacheDuration: 3600000, // 1 hour cache duration
+  allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'],
 });
 
 // Environment type definitions
@@ -153,19 +156,13 @@ interface EnvConfig {
 }
 
 const getReplitDomain = (): string => {
-  const replitSlug = process.env.REPL_SLUG;
-  const replitOwner = process.env.REPL_OWNER;
-  
-  if (replitSlug && replitOwner) {
-    return `${replitSlug}.${replitOwner}.repl.co`;
-  }
-  
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    return hostname.includes('.repl.co') ? hostname : '0.0.0.0';
+    if (hostname.includes('.repl.co')) {
+      return hostname;
+    }
   }
-  
-  return '0.0.0.0';
+  return 'localhost';
 };
 
 const initializeConfig = (): EnvConfig => {
@@ -177,7 +174,7 @@ const initializeConfig = (): EnvConfig => {
     const isTest = mode === 'test';
     
     const domain = getReplitDomain();
-    const isLocalhost = domain === '0.0.0.0';
+    const isLocalDev = domain === 'localhost';
     
     const frontendPort = parseInt(import.meta.env.VITE_DEV_SERVER_PORT || '5173');
     const apiPort = parseInt(import.meta.env.VITE_API_SERVER_PORT || '3001');
@@ -196,26 +193,26 @@ const initializeConfig = (): EnvConfig => {
       host: domain,
       ports: {
         frontend: isDev ? frontendPort : externalPort,
-        api: isLocalhost ? apiPort : 443,
+        api: isDev ? apiPort : 443,
         external: externalPort
       },
       ws: {
-        protocol: isLocalhost ? 'ws' : 'wss',
-        host: domain,
-        port: isLocalhost ? apiPort : 443,
+        protocol: isDev ? 'ws' : 'wss',
+        host: isLocalDev ? 'localhost' : domain,
+        port: isDev ? apiPort : 443,
         reconnect: {
-          maxRetries: isDev ? 100 : 5,
-          minDelay: isDev ? 1000 : 5000,
-          maxDelay: isDev ? 30000 : 60000,
-          timeout: isDev ? 30000 : 60000
+          maxRetries: isDev ? 5 : 3,
+          minDelay: 1000,
+          maxDelay: isDev ? 5000 : 30000,
+          timeout: isDev ? 10000 : 30000
         }
       },
       api: {
-        protocol: isLocalhost ? 'http' : 'https',
-        host: isLocalhost ? '0.0.0.0' : domain,
-        port: isLocalhost ? apiPort : 443,
+        protocol: isDev ? 'http' : 'https',
+        host: isLocalDev ? 'localhost' : domain,
+        port: isDev ? apiPort : 443,
         baseUrl: '',
-        timeout: isDev ? 30000 : 60000,
+        timeout: isDev ? 10000 : 30000,
         retryAttempts: isDev ? 3 : 5,
         rateLimiting: !isDev ? {
           enabled: true,
@@ -226,14 +223,14 @@ const initializeConfig = (): EnvConfig => {
       objectStorage: {
         baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || '',
         maxFileSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
-        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
-        cacheDuration: isDev ? 0 : isProduction ? 3600 : 1800,
+        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'application/pdf'],
+        cacheDuration: isDev ? 300000 : 3600000, // 5 minutes in dev, 1 hour in prod
         retryAttempts: isDev ? 3 : 5,
         uploadConfig: {
           maxSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
           timeout: isDev ? 30000 : 60000,
-          chunkSize: 1024 * 1024, // 1MB chunk size
-          concurrency: isDev ? 3 : 2 // Number of concurrent uploads
+          chunkSize: 1024 * 1024,
+          concurrency: isDev ? 3 : 2
         }
       },
       logging: {
@@ -252,7 +249,7 @@ const initializeConfig = (): EnvConfig => {
         } : undefined
       },
       cache: {
-        enabled: !isDev,
+        enabled: true, // Enable caching even in dev for better performance
         ttl: isDev ? 300 : isProduction ? 3600 : 1800,
         maxSize: isDev ? 100 : isProduction ? 1000 : 500,
         strategy: isDev ? 'fifo' : 'lru',
@@ -297,7 +294,7 @@ const initializeConfig = (): EnvConfig => {
         analytics: !isDev,
         websockets: true,
         objectStorage: true,
-        caching: !isDev,
+        caching: true,
         compression: !isDev,
         monitoring: !isDev
       },
@@ -320,8 +317,9 @@ const initializeConfig = (): EnvConfig => {
       }
     };
 
-    config.api.baseUrl = isLocalhost
-      ? `${config.api.protocol}://0.0.0.0:${config.api.port}`
+    // Update API base URL construction
+    config.api.baseUrl = isDev
+      ? `${config.api.protocol}://${config.api.host}:${config.api.port}`
       : `${config.api.protocol}://${config.host}`;
 
     return validateConfig(config);
@@ -374,22 +372,21 @@ export const objectStorage = {
         if (signedUrl) {
           return signedUrl;
         }
-        
-        // If no URL is returned, throw an error to trigger retry
         throw new Error('Failed to get signed URL');
       } catch (error) {
         lastError = error as Error;
         retryCount++;
         
         if (retryCount < maxRetries) {
-          // Implement exponential backoff
           const delay = initialRetryDelay * Math.pow(2, retryCount - 1);
           await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
         }
+        console.error('[ObjectStorage] Failed to load image after retries:', lastError);
+        return fallbackUrl;
       }
     }
 
-    console.error('[ObjectStorage] Failed to load image after retries:', lastError);
     return fallbackUrl;
   }
 };
