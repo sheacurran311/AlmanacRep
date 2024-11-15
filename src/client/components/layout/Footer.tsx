@@ -29,7 +29,8 @@ const Footer: React.FC = () => {
           <Grid item xs={12} sm={6} md={4}>
             <Box sx={{ mb: 2 }}>
               <ImageComponent
-                src="almanaclogo.png"
+                src="/assets/almanac-logo.svg"
+                fallbackSrc="/assets/default-logo.svg"
                 alt="Almanac Labs"
                 style={{
                   height: '50px',
@@ -38,6 +39,7 @@ const Footer: React.FC = () => {
                   filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.2))'
                 }}
                 loadingComponent={<CircularProgress size={24} />}
+                useLocalAsset={true}
               />
             </Box>
             <Typography variant="body2" sx={{ mb: 2 }}>

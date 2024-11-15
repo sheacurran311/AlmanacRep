@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getSignedUrl } from '../../utils/setupEnv';
-import { PolyfillError } from '../../utils/initPolyfills';
-import { createBrowserStreamFromResponse } from '../../utils/browserStream';
 
 interface ImageComponentProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string;
   maxRetries?: number;
   loadingComponent?: React.ReactNode;
   onError?: (error: Error) => void;
+  useLocalAsset?: boolean;
 }
 
 const ImageComponent: React.FC<ImageComponentProps> = ({
@@ -17,20 +16,58 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
   maxRetries = 2,
   loadingComponent,
   onError,
+  useLocalAsset = false,
   ...props
 }) => {
-  const [currentSrc, setCurrentSrc] = useState<string>(fallbackSrc);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [currentSrc, setCurrentSrc] = useState<string>(useLocalAsset ? src : fallbackSrc);
+  const [loading, setLoading] = useState<boolean>(!useLocalAsset);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Refs for cleanup
+  const mounted = useRef(true);
+  const abortController = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+  const blobUrl = useRef<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    let abortController: AbortController | null = null;
-    let blobUrl: string | null = null;
+    return () => {
+      mounted.current = false;
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (blobUrl.current) {
+        URL.revokeObjectURL(blobUrl.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const cleanup = () => {
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (blobUrl.current) {
+        URL.revokeObjectURL(blobUrl.current);
+        blobUrl.current = null;
+      }
+    };
 
     const loadImage = async () => {
       if (!src) {
+        setLoading(false);
+        return;
+      }
+
+      // If it's a local asset, use it directly
+      if (useLocalAsset) {
+        setCurrentSrc(src);
         setLoading(false);
         return;
       }
@@ -44,83 +81,104 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
         return;
       }
 
+      cleanup();
+
       try {
         setLoading(true);
         setError(null);
-        abortController = new AbortController();
+        abortController.current = new AbortController();
 
-        // Cleanup previous blob URL if exists
-        if (blobUrl) {
-          URL.revokeObjectURL(blobUrl);
-          blobUrl = null;
-        }
+        // Set a timeout for the entire operation
+        const timeout = new Promise((_, reject) => {
+          timeoutRef.current = window.setTimeout(() => {
+            reject(new Error('Image load timeout'));
+          }, 10000); // 10 second timeout
+        });
 
-        const targetUrl = src.startsWith('http') || src.startsWith('/') ? src : await getSignedUrl(src);
+        const targetUrl = src.startsWith('http') || src.startsWith('/') ? 
+          src : 
+          await Promise.race([
+            getSignedUrl(src),
+            timeout
+          ]);
+
         if (!targetUrl) {
           throw new Error('Failed to get image URL');
         }
 
-        const response = await fetch(targetUrl, { signal: abortController.signal });
+        const response = await fetch(targetUrl, { 
+          signal: abortController.current.signal,
+          cache: 'no-cache'
+        });
+
         if (!response.ok) {
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
 
-        // Use our custom stream implementation
-        const stream = await createBrowserStreamFromResponse(response);
-        const chunks: Uint8Array[] = [];
-        
-        stream.on('data', (chunk: Uint8Array) => {
-          chunks.push(chunk);
+        const blob = await response.blob();
+        const newBlobUrl = URL.createObjectURL(blob);
+
+        // Test if the image can be loaded
+        await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = resolve;
+          img.onerror = () => reject(new Error('Invalid image data'));
+          img.src = newBlobUrl;
         });
 
-        await new Promise<void>((resolve, reject) => {
-          stream.on('end', () => resolve());
-          stream.on('error', (err) => reject(err));
-        });
+        if (!mounted.current) return;
 
-        const blob = new Blob(chunks, { type: response.headers.get('content-type') || 'image/jpeg' });
-        blobUrl = URL.createObjectURL(blob);
+        if (blobUrl.current) {
+          URL.revokeObjectURL(blobUrl.current);
+        }
 
-        if (!mounted) return;
-        setCurrentSrc(blobUrl);
+        blobUrl.current = newBlobUrl;
+        setCurrentSrc(newBlobUrl);
         setLoading(false);
       } catch (err) {
-        if (!mounted) return;
+        if (!mounted.current) return;
 
         const error = err instanceof Error ? err : new Error(String(err));
         console.warn(`[ImageComponent] Load error (attempt ${retryCount + 1}/${maxRetries}):`, {
           src,
-          error: error.message,
-          stack: error.stack
+          error: error.message
         });
 
         setError(error);
-        if (retryCount < maxRetries && !(error instanceof PolyfillError)) {
-          setRetryCount(prev => prev + 1);
+        
+        // Immediately use fallback for network errors
+        if (error.name === 'AbortError' || error.message.includes('network error')) {
+          onError?.(error);
+          setCurrentSrc(fallbackSrc);
+          setLoading(false);
+        } else if (retryCount < maxRetries) {
+          timeoutRef.current = window.setTimeout(() => {
+            if (mounted.current) {
+              setRetryCount(prev => prev + 1);
+            }
+          }, Math.min(1000 * Math.pow(2, retryCount), 5000)); // Exponential backoff
         } else {
           onError?.(error);
           setCurrentSrc(fallbackSrc);
           setLoading(false);
+        }
+      } finally {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
         }
       }
     };
 
     loadImage().catch(err => {
       console.error('[ImageComponent] Unhandled error in loadImage:', err);
-      if (mounted) {
+      if (mounted.current) {
         setCurrentSrc(fallbackSrc);
         setLoading(false);
       }
     });
 
-    return () => {
-      mounted = false;
-      abortController?.abort();
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [src, retryCount, maxRetries, fallbackSrc, onError]);
+    return cleanup;
+  }, [src, retryCount, maxRetries, fallbackSrc, onError, useLocalAsset]);
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const imgError = new Error(`Image load error: ${(e.target as HTMLImageElement).src}`);

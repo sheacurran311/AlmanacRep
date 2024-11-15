@@ -4,7 +4,6 @@ import {
   Box,
   Toolbar,
   IconButton,
-  Typography,
   Menu,
   Container,
   Button,
@@ -57,6 +56,7 @@ const Header: React.FC = () => {
       }}
       loadingComponent={<CircularProgress size={24} />}
       onError={handleLogoError}
+      useLocalAsset={true}
     />
   );
 
