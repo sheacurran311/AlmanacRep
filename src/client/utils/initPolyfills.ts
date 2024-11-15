@@ -266,5 +266,5 @@ const initializePolyfills = () => {
 // Initialize polyfills immediately
 initializePolyfills();
 
-// Export enhanced API
-export { utilAPI as util, PolyfillError };
+// Export util and remove the redundant PolyfillError export
+export { utilAPI as util };
