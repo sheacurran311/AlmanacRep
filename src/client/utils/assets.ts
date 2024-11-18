@@ -1,7 +1,7 @@
 // Central asset management utility
 import { basename } from 'path';
 
-const ASSET_BASE_PATH = '/assets';
+const ASSET_BASE_PATH = '/public/assets';
 
 export const getAssetPath = (assetName: string): string => {
   return `${ASSET_BASE_PATH}/${basename(assetName)}`;
@@ -19,9 +19,8 @@ export const validateAssetExists = async (assetPath: string): Promise<boolean> =
 // Asset registry for better management and preloading
 export const ASSETS = {
   logos: {
-    default: getAssetPath('default-logo.svg'),
+    default: getAssetPath('almanaclogo.png'),
     almanac: getAssetPath('almanaclogo.png'),
-    placeholder: getAssetPath('placeholder-logo.svg'),
   },
   images: {
     hero: getAssetPath('hero-image.svg'),

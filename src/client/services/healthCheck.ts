@@ -8,6 +8,17 @@ interface HealthStatus {
   services?: {
     database: 'connected' | 'disconnected';
     api: 'running' | 'stopped';
+    frontend: 'running' | 'stopped';
+  };
+  ports?: {
+    api: {
+      port: number;
+      status: 'available' | 'unavailable';
+    };
+    frontend: {
+      port: number;
+      status: 'available' | 'unavailable';
+    };
   };
   uptime?: number;
   environment?: string;
@@ -26,16 +37,22 @@ class HealthCheckService {
   private intervalId?: NodeJS.Timeout;
   private lastStatus: HealthStatus | null = null;
   private retryManager: RetryManager;
+  private apiBase: string;
 
   private constructor() {
+    const apiPort = import.meta.env.VITE_API_SERVER_PORT || '3001';
+    const isDev = import.meta.env.DEV;
+    // In development, use the full URL with port
+    this.apiBase = isDev ? `http://localhost:${apiPort}` : '';
+    
     this.retryManager = new RetryManager({
-      maxRetries: 5,
+      maxRetries: 3,
       initialDelay: 1000,
-      maxDelay: 30000,
+      maxDelay: 5000,
       onRetry: (attempt, error) => {
         console.log(`[${new Date().toISOString()}] [Health Check] Retry attempt ${attempt}:`, {
           error: error.message,
-          nextAttemptIn: Math.min(1000 * Math.pow(2, attempt), 30000)
+          nextAttemptIn: Math.min(1000 * Math.pow(2, attempt), 5000)
         });
       }
     });
@@ -50,14 +67,14 @@ class HealthCheckService {
 
   async checkHealth(): Promise<HealthStatus> {
     try {
-      const health = await fetchWithRetry<HealthStatus>('/api/health', {
+      const health = await fetchWithRetry<HealthStatus>(`${this.apiBase}/health`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
         },
-        maxRetries: 5,
+        maxRetries: 3,
         initialDelay: 1000,
-        maxDelay: 30000
+        maxDelay: 5000
       });
       
       this.lastStatus = health;
@@ -75,14 +92,14 @@ class HealthCheckService {
 
   async checkReadiness(): Promise<ReadinessStatus> {
     try {
-      return await fetchWithRetry<ReadinessStatus>('/api/ready', {
+      return await fetchWithRetry<ReadinessStatus>(`${this.apiBase}/ready`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
         },
         maxRetries: 3,
         initialDelay: 1000,
-        maxDelay: 10000
+        maxDelay: 5000
       });
     } catch (error) {
       return {

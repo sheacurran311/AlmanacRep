@@ -43,7 +43,7 @@ export const healthCheck = async (_req: Request, res: Response) => {
 
     // Get current port configuration
     const apiPort = parseInt(process.env.PORT || constants.INTERNAL_PORT.toString());
-    const frontendPort = parseInt(process.env.VITE_DEV_SERVER_PORT || constants.VITE.DEV_SERVER_PORT.toString());
+    const frontendPort = parseInt(process.env.VITE_DEV_SERVER_PORT || '5173');
 
     // Check if ports are available using PortManager
     const isApiPortAvailable = await PortManager.isPortAvailable(apiPort);
@@ -51,10 +51,10 @@ export const healthCheck = async (_req: Request, res: Response) => {
 
     // Determine if we're using fallback ports
     const isApiFallback = apiPort !== constants.INTERNAL_PORT;
-    const isFrontendFallback = frontendPort !== constants.VITE.DEV_SERVER_PORT;
+    const isFrontendFallback = frontendPort !== 5173;
 
     const health: HealthStatus = {
-      status: isDbConnected && (!isApiPortAvailable) && (!isFrontendPortAvailable) ? 'healthy' : 'unhealthy',
+      status: isDbConnected ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       services: {
@@ -85,7 +85,8 @@ export const healthCheck = async (_req: Request, res: Response) => {
       }
     };
 
-    res.status(health.status === 'healthy' ? 200 : 503).json(health);
+    // Only return unhealthy if database is disconnected
+    res.status(health.services.database === 'connected' ? 200 : 503).json(health);
   } catch (error) {
     console.error('[Health Check] Error:', error);
     res.status(503).json({
@@ -103,14 +104,14 @@ export const readiness = async (_req: Request, res: Response) => {
     
     // Get current port configuration
     const apiPort = parseInt(process.env.PORT || constants.INTERNAL_PORT.toString());
-    const frontendPort = parseInt(process.env.VITE_DEV_SERVER_PORT || constants.VITE.DEV_SERVER_PORT.toString());
+    const frontendPort = parseInt(process.env.VITE_DEV_SERVER_PORT || '5173');
     
     // Check if ports are available using PortManager
     const isApiPortAvailable = await PortManager.isPortAvailable(apiPort);
     const isFrontendPortAvailable = await PortManager.isPortAvailable(frontendPort);
     
-    if (!isDbConnected || isApiPortAvailable || isFrontendPortAvailable) {
-      throw new Error('Service readiness check failed');
+    if (!isDbConnected) {
+      throw new Error('Database connection check failed');
     }
 
     res.status(200).json({
@@ -118,17 +119,17 @@ export const readiness = async (_req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       services: {
         database: 'connected',
-        api: 'running',
-        frontend: 'running'
+        api: !isApiPortAvailable ? 'running' : 'stopped',
+        frontend: !isFrontendPortAvailable ? 'running' : 'stopped'
       },
       ports: {
         api: {
           port: apiPort,
-          status: 'available'
+          status: !isApiPortAvailable ? 'available' : 'unavailable'
         },
         frontend: {
           port: frontendPort,
-          status: 'available'
+          status: !isFrontendPortAvailable ? 'available' : 'unavailable'
         }
       }
     });

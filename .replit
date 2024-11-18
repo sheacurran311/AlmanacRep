@@ -46,7 +46,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd src/client && NODE_ENV=development VITE_DEV_SERVER_PORT=5173 VITE_API_SERVER_PORT=3001 npx vite"
+args = "cd src/client && NODE_ENV=development VITE_DEV_SERVER_PORT=5173 VITE_API_SERVER_PORT=3001 npx vite --host"
 waitForPort = 5173
 
 [deployment]
@@ -60,7 +60,6 @@ externalPort = 80
 [[ports]]
 localPort = 5173
 externalPort = 5173
-exposeLocalhost = true
 
 [[ports]]
 localPort = 5174

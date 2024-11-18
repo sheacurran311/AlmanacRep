@@ -3,7 +3,7 @@ import { healthCheck, readiness } from '../controllers/healthController';
 
 const router = express.Router();
 
-router.get('/health', healthCheck);
-router.get('/ready', readiness);
+// Health check endpoint mounted at root level
+router.get('/', healthCheck);
 
 export default router;

@@ -261,8 +261,11 @@ server.on('upgrade', (request: IncomingMessage, socket: net.Socket, head: Buffer
   }
 });
 
-// API Routes with health check routes added first
-app.use('/api/health', healthRoutes);
+// Health check routes should be mounted at the root level and before any other routes
+app.use('/health', healthRoutes);
+app.use('/ready', healthRoutes);
+
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/nft', nftRoutes);
@@ -274,7 +277,7 @@ app.use('/api/customers', customerRoutes);
 // Static files and routing handler should come after API routes
 if (process.env.NODE_ENV === 'development') {
   app.get('*', (_req, res) => {
-    res.redirect(`http://localhost:${process.env.VITE_DEV_PORT || 5173}`);
+    res.redirect(`http://localhost:${process.env.VITE_DEV_SERVER_PORT || 5173}`);
   });
 } else {
   app.use(express.static(path.join(__dirname, '../../dist/client')));
