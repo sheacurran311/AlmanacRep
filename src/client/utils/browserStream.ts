@@ -12,9 +12,78 @@ interface StreamDestination {
   on(event: string, listener: () => void): void;
 }
 
-// Removed BrowserReadableStream class
+export class BrowserReadableStream {
+  private chunks: any[] = [];
+  private ended = false;
+  private destroyed = false;
+  private error: Error | null = null;
 
-// Removed BrowserWritableStream class
+  constructor(private options: StreamOptions = {}) {}
+
+  push(chunk: any): void {
+    if (this.destroyed) return;
+    if (chunk === null) {
+      this.ended = true;
+      return;
+    }
+    this.chunks.push(chunk);
+  }
+
+  destroy(error?: Error): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (error) {
+      this.error = error;
+    }
+  }
+
+  async *[Symbol.asyncIterator]() {
+    while (!this.ended && !this.destroyed) {
+      if (this.chunks.length > 0) {
+        yield this.chunks.shift();
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+    if (this.error) {
+      throw this.error;
+    }
+  }
+}
+
+export class BrowserWritableStream {
+  private destroyed = false;
+  private error: Error | null = null;
+  
+  constructor(private destination: StreamDestination, private options: StreamOptions = {}) {}
+
+  write(chunk: any): boolean {
+    if (this.destroyed) return false;
+    try {
+      return this.destination.write(chunk);
+    } catch (error) {
+      this.destroy(error as Error);
+      return false;
+    }
+  }
+
+  end(): void {
+    if (this.destroyed) return;
+    try {
+      this.destination.end();
+    } catch (error) {
+      this.destroy(error as Error);
+    }
+  }
+
+  destroy(error?: Error): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (error) {
+      this.error = error;
+    }
+  }
+}
 
 // Helper function to convert Blob/File to ReadableStream
 export const createBrowserStreamFromBlob = (

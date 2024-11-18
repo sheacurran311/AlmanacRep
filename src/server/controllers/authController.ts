@@ -23,7 +23,26 @@ export interface UserResponse {
   email: string;
   role: string;
   tenantId: string;
+  permissions?: Record<string, boolean>;
 }
+
+const generateApiKey = (): string => {
+  return `alm_${Buffer.from(crypto.randomBytes(24)).toString('base64').slice(0, 32)}`;
+};
+
+const createAuthToken = (user: UserResponse): string => {
+  return jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId,
+      permissions: user.permissions
+    },
+    constants.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+};
 
 export const register = async (
   req: Request<{}, {}, RegistrationRequest>,
@@ -36,11 +55,9 @@ export const register = async (
       throw new AuthError('All fields are required', 400);
     }
 
-    // Start transaction
     await DatabaseManager.query('BEGIN');
 
     try {
-      // Check if email already exists
       const existingUser = await DatabaseManager.query(
         'SELECT id FROM users WHERE email = $1',
         [email]
@@ -50,16 +67,13 @@ export const register = async (
         throw new AuthError('Email already registered', 400);
       }
 
-      // Create tenant
       const tenantApiKey = generateApiKey();
       const tenantId = await TenantManager.createTenant(companyName, tenantApiKey);
 
-      // Hash password
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(password, saltRounds);
 
-      // Create user
-      const userResult = await DatabaseManager.query(
+      const userResult = await DatabaseManager.query<UserResponse>(
         `INSERT INTO users (tenant_id, email, full_name, password_hash, role)
          VALUES ($1, $2, $3, $4, 'tenant_admin')
          RETURNING id, email, role, tenant_id as "tenantId"`,
@@ -67,16 +81,7 @@ export const register = async (
       );
 
       const user = userResult.rows[0];
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-          tenantId: user.tenantId
-        },
-        constants.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+      const token = createAuthToken(user);
 
       await DatabaseManager.query('COMMIT');
 
@@ -99,10 +104,6 @@ export const register = async (
   }
 };
 
-function generateApiKey(): string {
-  return `alm_${Buffer.from(Math.random().toString()).toString('base64').slice(0, 32)}`;
-}
-
 export const login = async (
   req: Request<{}, {}, LoginRequest>,
   res: Response
@@ -114,9 +115,14 @@ export const login = async (
       throw new AuthError('Email and password are required', 400);
     }
 
-    // Find user by email first
     const result = await DatabaseManager.query<UserResponse & { password_hash: string }>(
-      'SELECT id, email, role, tenant_id as "tenantId", password_hash FROM users WHERE email = $1',
+      `SELECT u.id, u.email, u.role, u.tenant_id as "tenantId", u.password_hash,
+              json_object_agg(p.permission_name, true) as permissions
+       FROM users u
+       LEFT JOIN user_permissions up ON u.id = up.user_id
+       LEFT JOIN permissions p ON up.permission_id = p.id
+       WHERE u.email = $1
+       GROUP BY u.id`,
       [email]
     );
 
@@ -131,24 +137,13 @@ export const login = async (
       throw new AuthError('Invalid credentials', 401);
     }
 
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        tenantId: user.tenantId
-      },
-      constants.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    const token = createAuthToken(user);
 
-    // Update last login
     await DatabaseManager.query(
       'UPDATE users SET last_login = NOW() WHERE id = $1',
       [user.id]
     );
 
-    // Remove password_hash from response
     const { password_hash, ...userResponse } = user;
     res.json({ token, user: userResponse });
   } catch (error) {

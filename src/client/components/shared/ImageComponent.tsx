@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getSignedUrl } from '../../utils/setupEnv';
+import { getAssetPath, validateAssetExists, ASSETS } from '../../utils/assets';
 
 interface ImageComponentProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string;
@@ -7,20 +8,26 @@ interface ImageComponentProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   loadingComponent?: React.ReactNode;
   onError?: (error: Error) => void;
   useLocalAsset?: boolean;
+  assetKey?: keyof typeof ASSETS.logos | keyof typeof ASSETS.images;
 }
 
 const ImageComponent: React.FC<ImageComponentProps> = ({
   src,
-  fallbackSrc = '/assets/default-logo.svg',
+  fallbackSrc = ASSETS.logos.placeholder,
   alt,
   maxRetries = 2,
   loadingComponent,
   onError,
   useLocalAsset = false,
+  assetKey,
   ...props
 }) => {
-  const [currentSrc, setCurrentSrc] = useState<string>(useLocalAsset ? src : fallbackSrc);
-  const [loading, setLoading] = useState<boolean>(!useLocalAsset);
+  const [currentSrc, setCurrentSrc] = useState<string>(
+    assetKey ? 
+      (ASSETS as any)[assetKey] : 
+      (useLocalAsset ? getAssetPath(src) : fallbackSrc)
+  );
+  const [loading, setLoading] = useState<boolean>(!useLocalAsset && !assetKey);
   const [retryCount, setRetryCount] = useState<number>(0);
   const [error, setError] = useState<Error | null>(null);
   
@@ -60,14 +67,22 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
     };
 
     const loadImage = async () => {
-      if (!src) {
+      // If using asset key or no source provided, skip loading
+      if (assetKey || !src) {
         setLoading(false);
         return;
       }
 
-      // If it's a local asset, use it directly
+      // If it's a local asset, validate and use it
       if (useLocalAsset) {
-        setCurrentSrc(src);
+        const assetPath = getAssetPath(src);
+        const exists = await validateAssetExists(assetPath);
+        if (exists) {
+          setCurrentSrc(assetPath);
+        } else {
+          console.warn(`[ImageComponent] Local asset not found: ${assetPath}`);
+          setCurrentSrc(fallbackSrc);
+        }
         setLoading(false);
         return;
       }
@@ -178,7 +193,7 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
     });
 
     return cleanup;
-  }, [src, retryCount, maxRetries, fallbackSrc, onError, useLocalAsset]);
+  }, [src, retryCount, maxRetries, fallbackSrc, onError, useLocalAsset, assetKey]);
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const imgError = new Error(`Image load error: ${(e.target as HTMLImageElement).src}`);

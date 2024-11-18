@@ -1,1 +1,2 @@
-// This file is deprecated. Use src/client/hooks/useAuth instead
+// File removed as part of codebase cleanup
+// Please import from '@client/hooks/useAuth' instead

@@ -1,36 +1,80 @@
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
+// Shared dependency versions
+const DEPENDENCY_VERSIONS = {
+  react: '^18.0.0',
+  reactDom: '^18.0.0',
+  reactRouter: '^6.0.0',
+  mui: '^6.1.6'
+};
+
 const federationConfig = {
   name: 'host',
   filename: 'remoteEntry.js',
   remotes: {},
   exposes: {
-    './components/admin': './src/client/components/admin/index.ts'
+    './components/admin': './src/client/components/admin/index.ts',
+    './components/auth': './src/client/components/auth/index.ts',
+    './components/shared': './src/client/components/shared/index.ts',
+    './utils/common': './src/client/utils/common/index.ts'
   },
   shared: {
-    // React ecosystem
-    react: { singleton: true, eager: true, requiredVersion: '^18.0.0' },
-    'react-dom': { singleton: true, eager: true, requiredVersion: '^18.0.0' },
-    'react-router-dom': { singleton: true, eager: true, requiredVersion: '^6.0.0' },
+    // Core React ecosystem - always eager loaded
+    react: { 
+      singleton: true, 
+      eager: true, 
+      requiredVersion: DEPENDENCY_VERSIONS.react 
+    },
+    'react-dom': { 
+      singleton: true, 
+      eager: true, 
+      requiredVersion: DEPENDENCY_VERSIONS.reactDom 
+    },
+    'react-router-dom': { 
+      singleton: true, 
+      eager: true, 
+      requiredVersion: DEPENDENCY_VERSIONS.reactRouter 
+    },
     
-    // Material UI
-    '@mui/material': { singleton: true, eager: true },
-    '@mui/icons-material': { singleton: true, eager: true },
-    '@emotion/react': { singleton: true, eager: true },
-    '@emotion/styled': { singleton: true, eager: true },
+    // UI Components - eager loaded for consistent styling
+    '@mui/material': { 
+      singleton: true, 
+      eager: true, 
+      requiredVersion: DEPENDENCY_VERSIONS.mui 
+    },
+    '@mui/icons-material': { 
+      singleton: true, 
+      eager: true 
+    },
+    '@emotion/react': { 
+      singleton: true, 
+      eager: true 
+    },
+    '@emotion/styled': { 
+      singleton: true, 
+      eager: true 
+    },
     
-    // Storage and utilities
-    '@replit/object-storage': { singleton: true },
+    // Form handling - lazy loaded
+    'formik': { singleton: true },
+    'yup': { singleton: true },
+    'zod': { singleton: true },
     
-    // Core Node.js polyfills
+    // Core utilities - eager loaded
+    '@replit/object-storage': { singleton: true, eager: true },
+    'date-fns': { singleton: true, eager: true },
+    'uuid': { singleton: true, eager: true },
+    
+    // Node.js polyfills - always eager loaded
     events: { singleton: true, eager: true },
     util: { singleton: true, eager: true }
   }
 };
 
+// Optimized polyfills configuration
 export const vitePlugins = [
   nodePolyfills({
-    include: ['events', 'process'],
+    include: ['events', 'process', 'util'],
     globals: {
       Buffer: true,
       global: true,
@@ -38,14 +82,16 @@ export const vitePlugins = [
     },
     overrides: {
       util: './src/client/utils/utilPolyfill.ts'
-    }
+    },
+    protocolImports: true
   })
 ];
 
+// Build optimization configuration
 export const buildConfig = {
   target: 'esnext',
   minify: 'esbuild',
-  sourcemap: true,
+  sourcemap: process.env.NODE_ENV !== 'production',
   commonjsOptions: {
     transformMixedEsModules: true
   },
@@ -55,9 +101,11 @@ export const buildConfig = {
     },
     output: {
       manualChunks: {
-        vendor: ['react', 'react-dom', 'react-router-dom'],
-        mui: ['@mui/material', '@mui/icons-material'],
-        polyfills: ['events', 'util']
+        'core-deps': ['react', 'react-dom', 'react-router-dom'],
+        'ui-deps': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+        'form-deps': ['formik', 'yup', 'zod'],
+        'utils': ['date-fns', 'uuid'],
+        'polyfills': ['events', 'util']
       }
     }
   }

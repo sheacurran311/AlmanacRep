@@ -16,6 +16,7 @@ export interface AuthContextType {
   logout: () => void;
   loading: boolean;
   error: string | null;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
   loading: true,
   error: null,
+  clearError: () => {},
 });
 
 export const useAuth = () => {
@@ -41,19 +43,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
+    const initializeAuth = async () => {
+      const token = localStorage.getItem("token");
+      const userData = localStorage.getItem("user");
 
-    if (token && userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (err) {
-        console.error("Error parsing user data:", err);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+      if (token && userData) {
+        try {
+          const user = JSON.parse(userData);
+          setUser(user);
+
+          // Validate token with backend
+          const response = await fetch("/api/auth/validate", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Invalid session");
+          }
+        } catch (err) {
+          console.error("Auth initialization error:", err);
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("tenantId");
+          setUser(null);
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -78,9 +98,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem("tenantId", data.user.tenantId);
       setUser(data.user);
 
-      // Only navigate to admin if user has admin role
       if (data.user.role.includes("admin")) {
         navigate("/admin/dashboard");
+      } else {
+        navigate("/dashboard");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -96,6 +117,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     navigate("/");
   };
 
+  const clearError = () => {
+    setError(null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -104,6 +129,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         logout,
         loading,
         error,
+        clearError,
       }}
     >
       {children}

@@ -6,6 +6,7 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onReset?: () => void;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -98,6 +99,10 @@ class ErrorBoundary extends Component<Props, State> {
       error,
       errorInfo
     });
+
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   private handleReload = () => {
@@ -155,7 +160,7 @@ class ErrorBoundary extends Component<Props, State> {
               <Typography variant="body2" sx={{ mb: 2 }}>
                 {error?.message || 'An unexpected error occurred'}
               </Typography>
-              {errorInfo?.componentStack && (
+              {env.NODE_ENV === 'development' && errorInfo?.componentStack && (
                 <Typography
                   variant="body2"
                   component="pre"

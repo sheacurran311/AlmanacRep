@@ -21,7 +21,7 @@ import {
   Settings as SettingsIcon,
   ExitToApp as LogoutIcon
 } from '@mui/icons-material';
-import { useAuth } from '@/client/hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import type { AdminLayoutProps } from './types';
 
@@ -54,15 +54,30 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <List>
         {menuItems.map((item) => (
           <ListItem
+            component="div"
             key={item.text}
             onClick={() => navigate(item.path)}
-            sx={{ cursor: 'pointer' }}
+            sx={{ 
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)'
+              }
+            }}
           >
             <ListItemIcon>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>
         ))}
-        <ListItem onClick={logout} sx={{ cursor: 'pointer' }}>
+        <ListItem
+          component="div"
+          onClick={logout}
+          sx={{ 
+            cursor: 'pointer',
+            '&:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)'
+            }
+          }}
+        >
           <ListItemIcon><LogoutIcon /></ListItemIcon>
           <ListItemText primary="Logout" />
         </ListItem>

@@ -2,11 +2,12 @@
 module.exports = {
   content: [
     "./src/client/**/*.{js,jsx,ts,tsx}",
-    "./src/client/index.html",
     "./src/client/components/**/*.{js,jsx,ts,tsx}",
-    "./src/client/routes/**/*.{js,jsx,ts,tsx}",
-    "./src/client/hooks/**/*.{js,jsx,ts,tsx}",
-    "./src/client/theme/**/*.{js,jsx,ts,tsx}",
+    "./src/client/pages/**/*.{js,jsx,ts,tsx}",
+    "./src/client/layouts/**/*.{js,jsx,ts,tsx}",
+    "./src/client/features/**/*.{js,jsx,ts,tsx}",
+    "./src/client/*.{html,js,jsx,ts,tsx}",
+    "./index.html"
   ],
   important: '#root',
   theme: {
