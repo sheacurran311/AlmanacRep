@@ -32,8 +32,8 @@ export const validateAssetExists = async (assetPath: string): Promise<boolean> =
 // Asset registry for better management and preloading
 export const ASSETS: AssetRegistry = {
   logos: {
-    default: getAssetPath('almanaclogo.svg'),
-    almanac: getAssetPath('almanaclogo.svg'),
+    default: getAssetPath('almanaclogo.jpeg'),
+    almanac: getAssetPath('almanaclogo.jpeg'),
     placeholder: getAssetPath('placeholder-logo.svg'),
   },
   images: {

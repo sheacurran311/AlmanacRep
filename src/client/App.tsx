@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { StyledEngineProvider } from '@mui/material/styles';
 import { Box, Snackbar, Alert, CircularProgress } from '@mui/material';
+import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './routes';
 import theme from './theme';
 import { AuthProvider } from './hooks/useAuth';
@@ -77,11 +78,12 @@ const App: React.FC = () => {
   };
 
   return (
-    <StyledEngineProvider injectFirst>
-      <ErrorBoundary onReset={handleErrorBoundaryReset}>
-        <AuthProvider>
-          <ThemeProvider theme={theme}>
-            <CssBaseline />
+    <BrowserRouter>
+      <StyledEngineProvider injectFirst>
+        <ErrorBoundary onReset={handleErrorBoundaryReset}>
+          <AuthProvider>
+            <ThemeProvider theme={theme}>
+              <CssBaseline />
             <Box
               sx={{
                 display: 'flex',

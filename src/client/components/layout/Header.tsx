@@ -45,8 +45,8 @@ const Header: React.FC = () => {
 
   const renderLogo = () => (
     <ImageComponent
-      src="/assets/almanaclogo.svg"
-      fallbackSrc="/assets/almanaclogo.svg"
+      src="/assets/almanaclogo.jpeg"
+      fallbackSrc="/assets/almanaclogo.jpeg"
       alt="Almanac Labs"
       style={{
         height: '40px',
