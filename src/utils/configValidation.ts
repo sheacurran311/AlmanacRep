@@ -146,13 +146,12 @@ export const configSchema = z.object({
   ports: portSchema,
   ws: wsConfigSchema,
   api: apiConfigSchema,
-  
   logging: loggingSchema,
   cache: cacheSchema,
   security: securitySchema,
-  features: featuresSchema,
+  features: featuresSchema.optional(),
   monitoring: monitoringSchema,
-});
+}).strict();
 
 export type ValidatedConfig = z.infer<typeof configSchema>;
 

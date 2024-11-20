@@ -3,7 +3,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { StyledEngineProvider } from '@mui/material/styles';
 import { Box, Snackbar, Alert, CircularProgress } from '@mui/material';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter as Router } from 'react-router-dom';
 import AppRoutes from './routes';
 import theme from './theme';
 import { AuthProvider } from './hooks/useAuth';
@@ -78,7 +78,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <BrowserRouter>
+    <Router>
       <StyledEngineProvider injectFirst>
         <ErrorBoundary onReset={handleErrorBoundaryReset}>
           <AuthProvider>
@@ -147,7 +147,7 @@ const App: React.FC = () => {
           </AuthProvider>
         </ErrorBoundary>
       </StyledEngineProvider>
-    </BrowserRouter>
+    </Router>
   );
 };
 

@@ -33,7 +33,9 @@ interface ReadinessStatus {
 
 class HealthCheckService {
   private static instance: HealthCheckService;
-  private checkInterval: number = 30000; // 30 seconds
+  private checkInterval: number = 10000; // 10 seconds for more responsive health checks
+  private maxRetries: number = 3;
+  private baseDelay: number = 1000;
   private intervalId?: NodeJS.Timeout;
   private lastStatus: HealthStatus | null = null;
   private retryManager: RetryManager;
