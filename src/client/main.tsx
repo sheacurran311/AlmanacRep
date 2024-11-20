@@ -3,7 +3,7 @@ import './utils/initPolyfills';
 
 import React, { Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Future } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import App from './App';
 import './styles/globals.css';
@@ -27,13 +27,9 @@ const mountApp = () => {
   root.render(
     <React.StrictMode>
       <ErrorBoundary onError={logError}>
-        <BrowserRouter>
-          <Future v7_startTransition={true} v7_relativeSplatPath={true}>
-            <Suspense fallback={<div>Loading...</div>}>
-              <App />
-            </Suspense>
-          </Future>
-        </BrowserRouter>
+        <Suspense fallback={<div>Loading...</div>}>
+          <App />
+        </Suspense>
       </ErrorBoundary>
     </React.StrictMode>
   );
