@@ -41,19 +41,7 @@ const apiConfigSchema = z.object({
   }).optional(),
 });
 
-// Object storage configuration schema
-const objectStorageSchema = z.object({
-  baseUrl: z.string(),
-  maxFileSize: z.number().int().min(1),
-  allowedTypes: z.array(z.string()),
-  cacheDuration: z.number().int().min(0),
-  retryAttempts: z.number().int().min(1),
-  uploadConfig: z.object({
-    chunkSize: z.number().int().min(1024),
-    concurrency: z.number().int().min(1),
-    timeout: z.number().int().min(1000),
-  }),
-});
+// Removed object storage schema as it's no longer required
 
 // Logging configuration schema
 const loggingSchema = z.object({
@@ -122,7 +110,6 @@ const featuresSchema = z.object({
   multitenant: z.boolean(),
   analytics: z.boolean(),
   websockets: z.boolean(),
-  objectStorage: z.boolean(),
   caching: z.boolean(),
   compression: z.boolean(),
   monitoring: z.boolean(),
@@ -158,7 +145,7 @@ export const configSchema = z.object({
   ports: portSchema,
   ws: wsConfigSchema,
   api: apiConfigSchema,
-  objectStorage: objectStorageSchema,
+  
   logging: loggingSchema,
   cache: cacheSchema,
   security: securitySchema,

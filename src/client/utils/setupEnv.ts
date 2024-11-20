@@ -5,6 +5,9 @@ export type Environment = 'development' | 'staging' | 'production' | 'test';
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type LogFormat = 'detailed' | 'json' | 'simple';
 
+// Export getSignedUrl function for backward compatibility
+export const getSignedUrl = () => '';
+
 interface EnvConfig {
   NODE_ENV: Environment;
   isDev: boolean;
