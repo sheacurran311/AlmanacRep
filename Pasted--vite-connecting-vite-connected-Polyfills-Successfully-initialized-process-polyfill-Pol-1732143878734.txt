@@ -1,0 +1,67 @@
+[vite] connecting...
+[vite] connected.
+[Polyfills] Successfully initialized process polyfill
+[Polyfills] Successfully initialized util polyfill
+[Polyfills] Successfully initialized buffer polyfill
+[Polyfills] Successfully initialized all polyfills
+[Environment] Configuration initialized: 
+Object {nodeEnv: "development", isDev: true, host: "localhost", ports: {…}, apiBaseUrl: "http://localhost:3001", …}
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+DOMException {}
+
+at t.value (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Unhandled promise rejection: 
+DOMException {}
+
+DOMException {}
+
+at t.value (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:17465)
+at new t (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630)
+at t.value (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766)
+at https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Unhandled promise rejection: 
+DOMException {}
+stack: "AbortError: signal is aborted without reason↵ at https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/components/shared/ImageComponent.tsx:29:33↵ at safelyCallDestroy (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:16748:13)↵ at commitHookEffectListUnmount (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:16875:19)↵ at invokePassiveEffectUnmountInDEV (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:18363:19)↵ at invokeEffectsInDev (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:19701:19)↵ at commitDoubleInvokeEffectsInDEV (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:19682:15)↵ at flushPassiveEffectsImpl (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:19503:13)↵ at flushPassiveEffects (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:19447:22)↵ at performSyncWorkOnRoot (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:18868:11)↵ at flushSyncCallbacks (https://d9a1d7f4-943d-45ec-9d64-a8de7e509652-00-7z0j761qjl38.riker.replit.dev:5173/@fs/home/runner/LoyaltyConnector/node_modules/.vite/deps/chunk-CX6Q2V5E.js?v=a2555f22:9119:30)"
+get stack: ƒ ()
+set stack: ƒ ()
+[[Prototype]]: DOMException
+
+DOMException {code: 20, name: "AbortError", message: "The user aborted a request.", INDEX_SIZE_ERR: 1, DOMSTRING_SIZE_ERR: 2, …}
+ABORT_ERR: 20
+DATA_CLONE_ERR: 25
+DOMSTRING_SIZE_ERR: 2
+HIERARCHY_REQUEST_ERR: 3
+INDEX_SIZE_ERR: 1
+INUSE_ATTRIBUTE_ERR: 10
+INVALID_ACCESS_ERR: 15
+INVALID_CHARACTER_ERR: 5
+INVALID_MODIFICATION_ERR: 13
+INVALID_NODE_TYPE_ERR: 24
+INVALID_STATE_ERR: 11
+NAMESPACE_ERR: 14
+NETWORK_ERR: 19
+NOT_FOUND_ERR: 8
+NOT_SUPPORTED_ERR: 9
+NO_DATA_ALLOWED_ERR: 6
+NO_MODIFICATION_ALLOWED_ERR: 7
+QUOTA_EXCEEDED_ERR: 22
+SECURITY_ERR: 18
+SYNTAX_ERR: 12
+TIMEOUT_ERR: 23
+TYPE_MISMATCH_ERR: 17
+URL_MISMATCH_ERR: 21
+VALIDATION_ERR: 16
+WRONG_DOCUMENT_ERR: 4
+code: 20
+get code: ƒ get code()
+message: "The user aborted a request."
+get message: ƒ get message()
+name: "AbortError"
+get name: ƒ get name()
+constructor: ƒ DOMException()
+Symbol(Symbol.toStringTag): undefined
+[[Prototype]]: Object

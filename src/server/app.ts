@@ -261,35 +261,32 @@ server.on('upgrade', (request: IncomingMessage, socket: net.Socket, head: Buffer
   }
 });
 
-// Health check routes with enhanced error handling
-app.get('/health', async (req, res) => {
+// Health check routes - placed before API routes for better response time
+app.use('/health', (req, res, next) => {
+  // Add specific CORS headers for health check endpoint
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
+app.get('/health', async (_req, res) => {
   try {
-    // Check database connection
     await DatabaseManager.query('SELECT 1');
-    
-    res.status(200).json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: 'connected',
-        api: 'running'
-      }
-    });
+    res.status(200).json({ status: 'healthy' });
   } catch (error) {
     console.error('[Health Check] Error:', error);
-    res.status(503).json({
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      error: error.message
-    });
+    res.status(503).json({ status: 'unhealthy' });
   }
 });
 
-app.get('/ready', (req, res) => {
-  res.status(200).json({
-    status: 'ready',
-    timestamp: new Date().toISOString()
-  });
+app.get('/ready', (_req, res) => {
+  res.status(200).json({ status: 'ready' });
 });
 
 // API Routes

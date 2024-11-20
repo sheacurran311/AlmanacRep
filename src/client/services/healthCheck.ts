@@ -33,9 +33,10 @@ interface ReadinessStatus {
 
 class HealthCheckService {
   private static instance: HealthCheckService;
-  private checkInterval: number = 10000; // 10 seconds for more responsive health checks
-  private maxRetries: number = 3;
-  private baseDelay: number = 1000;
+  private checkInterval: number = 15000; // 15 seconds to reduce server load
+  private maxRetries: number = 2; // Reduced retry attempts
+  private baseDelay: number = 2000;
+  private timeout: number = 5000; // 5 second timeout for health checks
   private intervalId?: NodeJS.Timeout;
   private lastStatus: HealthStatus | null = null;
   private retryManager: RetryManager;
@@ -100,16 +101,23 @@ class HealthCheckService {
   }
 
   async checkHealth(): Promise<HealthStatus> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
     try {
       const response = await fetchWithRetry<HealthStatus>(`${this.apiBase}/health`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
         },
-        maxRetries: 3,
-        initialDelay: 1000,
-        maxDelay: 5000
+        signal: controller.signal,
+        maxRetries: this.maxRetries,
+        initialDelay: this.baseDelay,
+        maxDelay: this.baseDelay * 2,
+        credentials: 'omit' // Disable credentials for health checks
       });
+
+      clearTimeout(timeoutId);
 
       if (!response || typeof response.status !== 'string') {
         throw new Error('Invalid health check response format');
@@ -118,6 +126,24 @@ class HealthCheckService {
       this.lastStatus = response;
       return response;
     } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error.name === 'AbortError') {
+        return {
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          error: 'Health check timed out'
+        };
+      }
+
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        return {
+          status: 'unhealthy',
+          timestamp: new Date().toISOString(),
+          error: 'Network connectivity issue'
+        };
+      }
+
       return this.handleFetchError(error);
     }
   }

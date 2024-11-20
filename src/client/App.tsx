@@ -26,13 +26,29 @@ const App: React.FC = () => {
   });
 
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const maxRetries = 2;
 
   const handleHealthStatusChange = useCallback((status: HealthStatus) => {
-    setConnection(prev => ({
-      status: status.status === 'healthy' ? 'connected' : 'disconnected',
-      lastError: status.error || null,
-      retryCount: prev.retryCount + (status.status === 'healthy' ? 0 : 1)
-    }));
+    setConnection(prev => {
+      const newRetryCount = prev.retryCount + (status.status === 'healthy' ? 0 : 1);
+      const isMaxRetriesExceeded = newRetryCount > maxRetries;
+
+      let errorMessage = status.error;
+      if (isMaxRetriesExceeded) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection or try again later.';
+      } else if (status.error === 'Network connectivity issue') {
+        errorMessage = 'Network connection lost. Attempting to reconnect...';
+      } else if (status.error === 'Health check timed out') {
+        errorMessage = 'Server response timeout. Retrying...';
+      }
+
+      return {
+        status: isMaxRetriesExceeded ? 'disconnected' : 
+               status.status === 'healthy' ? 'connected' : 'connecting',
+        lastError: errorMessage || null,
+        retryCount: newRetryCount
+      };
+    });
   }, []);
 
   useEffect(() => {
