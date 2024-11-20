@@ -1,21 +1,4 @@
-import { createObjectStorageClient } from './objectStorageClient';
 import { validateConfig, validateEnvironment, validateLogLevel, validateLogFormat } from '../../utils/configValidation';
-
-const REPLIT_BUCKET_ID = 'replit-objstore-abf868d0-76be-42b3-ba44-42573994d8a9';
-const DEFAULT_LOGO_PATH = '/public/assets/almanaclogo.png';
-const MAX_LOGO_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 1000;
-const MAX_CACHE_SIZE = 100;
-
-// Update object storage client configuration
-const client = createObjectStorageClient({
-  bucketId: REPLIT_BUCKET_ID,
-  maxRetries: MAX_LOGO_RETRIES,
-  initialRetryDelay: INITIAL_RETRY_DELAY,
-  maxCacheSize: MAX_CACHE_SIZE,
-  cacheDuration: 3600000, // 1 hour cache duration
-  allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'],
-});
 
 // Environment type definitions
 export type Environment = 'development' | 'staging' | 'production' | 'test';
@@ -56,19 +39,6 @@ interface EnvConfig {
       enabled: boolean;
       maxRequests: number;
       timeWindow: number;
-    };
-  };
-  objectStorage: {
-    baseUrl: string;
-    maxFileSize: number;
-    allowedTypes: string[];
-    cacheDuration: number;
-    retryAttempts: number;
-    uploadConfig: {
-      maxSize: number;
-      timeout: number;
-      chunkSize: number;
-      concurrency: number;
     };
   };
   logging: {
@@ -131,7 +101,6 @@ interface EnvConfig {
     multitenant: boolean;
     analytics: boolean;
     websockets: boolean;
-    objectStorage: boolean;
     caching: boolean;
     compression: boolean;
     monitoring: boolean;
@@ -220,19 +189,6 @@ const initializeConfig = (): EnvConfig => {
           timeWindow: 60000
         } : undefined
       },
-      objectStorage: {
-        baseUrl: import.meta.env.VITE_OBJECT_STORAGE_URL || '',
-        maxFileSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
-        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'application/pdf'],
-        cacheDuration: isDev ? 300000 : 3600000, // 5 minutes in dev, 1 hour in prod
-        retryAttempts: isDev ? 3 : 5,
-        uploadConfig: {
-          maxSize: isDev ? 10 * 1024 * 1024 : 5 * 1024 * 1024,
-          timeout: isDev ? 30000 : 60000,
-          chunkSize: 1024 * 1024,
-          concurrency: isDev ? 3 : 2
-        }
-      },
       logging: {
         level: validateLogLevel(isDev ? 'debug' : isProduction ? 'info' : 'debug'),
         format: validateLogFormat(isDev ? 'detailed' : 'json'),
@@ -249,7 +205,7 @@ const initializeConfig = (): EnvConfig => {
         } : undefined
       },
       cache: {
-        enabled: true, // Enable caching even in dev for better performance
+        enabled: true,
         ttl: isDev ? 300 : isProduction ? 3600 : 1800,
         maxSize: isDev ? 100 : isProduction ? 1000 : 500,
         strategy: isDev ? 'fifo' : 'lru',
@@ -293,7 +249,6 @@ const initializeConfig = (): EnvConfig => {
         multitenant: true,
         analytics: !isDev,
         websockets: true,
-        objectStorage: true,
         caching: true,
         compression: !isDev,
         monitoring: !isDev
@@ -349,49 +304,6 @@ try {
   throw error;
 }
 
-interface ImageLoadOptions {
-  fallbackUrl?: string;
-  maxRetries?: number;
-  initialRetryDelay?: number;
-}
-
-export const objectStorage = {
-  getSignedUrl: async (objectPath: string, options: ImageLoadOptions = {}): Promise<string> => {
-    const {
-      fallbackUrl = DEFAULT_LOGO_PATH,
-      maxRetries = MAX_LOGO_RETRIES,
-      initialRetryDelay = INITIAL_RETRY_DELAY
-    } = options;
-
-    let retryCount = 0;
-    let lastError: Error | null = null;
-
-    while (retryCount < maxRetries) {
-      try {
-        const signedUrl = await client.getSignedUrl(objectPath);
-        if (signedUrl) {
-          return signedUrl;
-        }
-        throw new Error('Failed to get signed URL');
-      } catch (error) {
-        lastError = error as Error;
-        retryCount++;
-        
-        if (retryCount < maxRetries) {
-          const delay = initialRetryDelay * Math.pow(2, retryCount - 1);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-        console.error('[ObjectStorage] Failed to load image after retries:', lastError);
-        return fallbackUrl;
-      }
-    }
-
-    return fallbackUrl;
-  }
-};
-
-export const getSignedUrl = objectStorage.getSignedUrl;
 export const isDevelopment = config.isDev;
 export const isProduction = config.isProduction;
 export const isStaging = config.isStaging;

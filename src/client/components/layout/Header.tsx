@@ -45,8 +45,8 @@ const Header: React.FC = () => {
 
   const renderLogo = () => (
     <ImageComponent
-      src="./assets/almanac-logo.svg"
-      fallbackSrc="./assets/default-logo.svg"
+      src="/assets/almanaclogo.svg"
+      fallbackSrc="/assets/almanaclogo.svg"
       alt="Almanac Labs"
       style={{
         height: '40px',
@@ -56,7 +56,6 @@ const Header: React.FC = () => {
       }}
       loadingComponent={<CircularProgress size={24} />}
       onError={handleLogoError}
-      useLocalAsset={true}
     />
   );
 

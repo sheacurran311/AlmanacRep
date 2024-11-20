@@ -68,7 +68,7 @@ export class ApiService {
 
     this.healthCheckPromise = (async () => {
       try {
-        const response = await fetch(`${env.api.baseUrl}/api/health`);
+        const response = await fetch(`${env.api.baseUrl}/health`);
         this.isHealthy = response.ok;
         return this.isHealthy;
       } catch (error) {

@@ -7,8 +7,10 @@ module.exports = {
     "./src/client/pages/**/*.{js,jsx,ts,tsx}",
     "./src/client/layouts/**/*.{js,jsx,ts,tsx}",
     "./src/client/views/**/*.{js,jsx,ts,tsx}",
-    "./src/client/shared/**/*.{js,jsx,ts,tsx}"
+    "./src/client/shared/**/*.{js,jsx,ts,tsx}",
+    "./index.html"
   ],
+  darkMode: 'class',
   important: '#root',
   theme: {
     extend: {

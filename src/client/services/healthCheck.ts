@@ -42,11 +42,12 @@ class HealthCheckService {
   private constructor() {
     const apiPort = import.meta.env.VITE_API_SERVER_PORT || '3001';
     const isDev = import.meta.env.DEV;
-    // In development, use the full URL with port
+    
+    // In development, use the full URL with port, but remove /api prefix
     this.apiBase = isDev ? `http://localhost:${apiPort}` : '';
     
     this.retryManager = new RetryManager({
-      maxRetries: 3,
+      maxRetries: 3, // Reduced from 5 to prevent excessive retries
       initialDelay: 1000,
       maxDelay: 5000,
       onRetry: (attempt, error) => {
@@ -65,9 +66,40 @@ class HealthCheckService {
     return HealthCheckService.instance;
   }
 
+  private handleFetchError(error: any): HealthStatus {
+    let errorMessage = 'Unknown error occurred';
+    let status: HealthStatus['status'] = 'unhealthy';
+
+    if (error instanceof Response) {
+      if (error.status === 404) {
+        errorMessage = 'Health check endpoint not found';
+        // Don't retry on 404s
+        this.retryManager.reset();
+      } else {
+        errorMessage = `HTTP error! status: ${error.status}`;
+      }
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
+    const unhealthyStatus: HealthStatus = {
+      status,
+      timestamp: new Date().toISOString(),
+      error: errorMessage,
+      services: {
+        database: 'disconnected',
+        api: 'stopped',
+        frontend: 'running'
+      }
+    };
+
+    this.lastStatus = unhealthyStatus;
+    return unhealthyStatus;
+  }
+
   async checkHealth(): Promise<HealthStatus> {
     try {
-      const health = await fetchWithRetry<HealthStatus>(`${this.apiBase}/health`, {
+      const response = await fetchWithRetry<HealthStatus>(`${this.apiBase}/health`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -76,36 +108,40 @@ class HealthCheckService {
         initialDelay: 1000,
         maxDelay: 5000
       });
-      
-      this.lastStatus = health;
-      return health;
+
+      if (!response || typeof response.status !== 'string') {
+        throw new Error('Invalid health check response format');
+      }
+
+      this.lastStatus = response;
+      return response;
     } catch (error) {
-      const unhealthyStatus: HealthStatus = {
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-      this.lastStatus = unhealthyStatus;
-      return unhealthyStatus;
+      return this.handleFetchError(error);
     }
   }
 
   async checkReadiness(): Promise<ReadinessStatus> {
     try {
-      return await fetchWithRetry<ReadinessStatus>(`${this.apiBase}/ready`, {
+      const response = await fetchWithRetry<ReadinessStatus>(`${this.apiBase}/ready`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
         },
-        maxRetries: 3,
+        maxRetries: 2,
         initialDelay: 1000,
         maxDelay: 5000
       });
+
+      if (!response || typeof response.status !== 'string') {
+        throw new Error('Invalid readiness check response format');
+      }
+
+      return response;
     } catch (error) {
       return {
         status: 'not ready',
         timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error during readiness check'
       };
     }
   }
@@ -115,6 +151,13 @@ class HealthCheckService {
       return;
     }
 
+    // Initial check
+    this.checkHealth().then(status => {
+      if (onStatusChange) {
+        onStatusChange(status);
+      }
+    });
+
     this.intervalId = setInterval(async () => {
       try {
         const status = await this.retryManager.execute(() => this.checkHealth());
@@ -123,6 +166,9 @@ class HealthCheckService {
         }
       } catch (error) {
         console.error('[Health Check] Monitoring error:', error);
+        if (onStatusChange) {
+          onStatusChange(this.handleFetchError(error));
+        }
       }
     }, this.checkInterval);
   }
