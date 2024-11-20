@@ -261,9 +261,36 @@ server.on('upgrade', (request: IncomingMessage, socket: net.Socket, head: Buffer
   }
 });
 
-// Health check routes should be mounted at the root level and before any other routes
-app.use('/health', healthRoutes);
-app.use('/ready', healthRoutes);
+// Health check routes with enhanced error handling
+app.get('/health', async (req, res) => {
+  try {
+    // Check database connection
+    await DatabaseManager.query('SELECT 1');
+    
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'connected',
+        api: 'running'
+      }
+    });
+  } catch (error) {
+    console.error('[Health Check] Error:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
+});
+
+app.get('/ready', (req, res) => {
+  res.status(200).json({
+    status: 'ready',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);

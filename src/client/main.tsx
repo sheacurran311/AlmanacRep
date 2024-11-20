@@ -3,7 +3,6 @@ import './utils/initPolyfills';
 
 import React, { Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import App from './App';
 import './styles/globals.css';

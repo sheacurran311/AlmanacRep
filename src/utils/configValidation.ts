@@ -113,6 +113,7 @@ const featuresSchema = z.object({
   caching: z.boolean(),
   compression: z.boolean(),
   monitoring: z.boolean(),
+  objectStorage: z.boolean().optional()
 });
 
 // Monitoring configuration schema
