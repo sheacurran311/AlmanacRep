@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getSignedUrl } from '../../utils/setupEnv';
 import { getAssetPath, validateAssetExists, ASSETS } from '../../utils/assets';
 
 interface ImageComponentProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -112,14 +111,7 @@ const ImageComponent: React.FC<ImageComponentProps> = ({
 
         const targetUrl = src.startsWith('http') || src.startsWith('/') ? 
           src : 
-          await Promise.race([
-            getSignedUrl(src),
-            timeout
-          ]);
-
-        if (!targetUrl) {
-          throw new Error('Failed to get image URL');
-        }
+          getAssetPath(src);
 
         const response = await fetch(targetUrl, { 
           signal: abortController.current.signal,

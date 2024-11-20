@@ -1,10 +1,23 @@
 // Central asset management utility
 import { basename } from 'path';
 
-const ASSET_BASE_PATH = '/public/assets';
+const ASSET_BASE_PATH = '/assets';
+
+interface AssetRegistry {
+  logos: {
+    default: string;
+    almanac: string;
+    placeholder: string;
+  };
+  images: {
+    hero: string;
+  };
+}
 
 export const getAssetPath = (assetName: string): string => {
-  return `${ASSET_BASE_PATH}/${basename(assetName)}`;
+  // Strip any leading slashes from the asset name
+  const cleanAssetName = assetName.replace(/^\/+/, '');
+  return `${ASSET_BASE_PATH}/${cleanAssetName}`;
 };
 
 export const validateAssetExists = async (assetPath: string): Promise<boolean> => {
@@ -17,10 +30,11 @@ export const validateAssetExists = async (assetPath: string): Promise<boolean> =
 };
 
 // Asset registry for better management and preloading
-export const ASSETS = {
+export const ASSETS: AssetRegistry = {
   logos: {
-    default: getAssetPath('almanaclogo.png'),
-    almanac: getAssetPath('almanaclogo.png'),
+    default: getAssetPath('almanaclogo.svg'),
+    almanac: getAssetPath('almanaclogo.svg'),
+    placeholder: getAssetPath('placeholder-logo.svg'),
   },
   images: {
     hero: getAssetPath('hero-image.svg'),
@@ -31,3 +45,8 @@ export const ASSETS = {
 export type AssetKey = keyof typeof ASSETS;
 export type LogoKey = keyof typeof ASSETS.logos;
 export type ImageKey = keyof typeof ASSETS.images;
+
+// Utility function to check if a key exists in the asset registry
+export const isValidAssetKey = (key: string, category: keyof AssetRegistry): boolean => {
+  return key in ASSETS[category];
+};
