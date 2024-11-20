@@ -84,69 +84,70 @@ const App: React.FC = () => {
           <AuthProvider>
             <ThemeProvider theme={theme}>
               <CssBaseline />
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '100vh',
-                opacity: connection.status === 'connected' ? 1 : 0.7,
-                transition: 'opacity 0.3s ease'
-              }}
-            >
-              <Header />
-              <Box sx={{ flexGrow: 1, position: 'relative' }}>
-                {connection.status !== 'connected' && (
-                  <Box
-                    sx={{
-                      position: 'fixed',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 1000,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 2
-                    }}
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minHeight: '100vh',
+                  opacity: connection.status === 'connected' ? 1 : 0.7,
+                  transition: 'opacity 0.3s ease'
+                }}
+              >
+                <Header />
+                <Box sx={{ flexGrow: 1, position: 'relative' }}>
+                  {connection.status !== 'connected' && (
+                    <Box
+                      sx={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 1000,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2
+                      }}
+                    >
+                      <CircularProgress />
+                    </Box>
+                  )}
+                  <AppRoutes />
+                </Box>
+                <Footer />
+                <Snackbar
+                  open={connection.status !== 'connected'}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                  <Alert 
+                    severity={connection.status === 'connecting' ? 'warning' : 'error'}
+                    variant="filled"
                   >
-                    <CircularProgress />
-                  </Box>
-                )}
-                <AppRoutes />
-              </Box>
-              <Footer />
-              <Snackbar
-                open={connection.status !== 'connected'}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-              >
-                <Alert 
-                  severity={connection.status === 'connecting' ? 'warning' : 'error'}
-                  variant="filled"
-                >
-                  {connection.status === 'connecting' 
-                    ? 'Connecting to server...' 
-                    : connection.lastError || 'Connection lost'}
-                </Alert>
-              </Snackbar>
-              <Snackbar
-                open={!!globalError}
-                autoHideDuration={6000}
-                onClose={handleCloseGlobalError}
-                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-              >
-                <Alert 
+                    {connection.status === 'connecting' 
+                      ? 'Connecting to server...' 
+                      : connection.lastError || 'Connection lost'}
+                  </Alert>
+                </Snackbar>
+                <Snackbar
+                  open={!!globalError}
+                  autoHideDuration={6000}
                   onClose={handleCloseGlobalError}
-                  severity="error"
-                  variant="filled"
+                  anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
                 >
-                  {globalError}
-                </Alert>
-              </Snackbar>
-            </Box>
-          </ThemeProvider>
-        </AuthProvider>
-      </ErrorBoundary>
-    </StyledEngineProvider>
+                  <Alert 
+                    onClose={handleCloseGlobalError}
+                    severity="error"
+                    variant="filled"
+                  >
+                    {globalError}
+                  </Alert>
+                </Snackbar>
+              </Box>
+            </ThemeProvider>
+          </AuthProvider>
+        </ErrorBoundary>
+      </StyledEngineProvider>
+    </BrowserRouter>
   );
 };
 
